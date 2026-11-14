@@ -13,12 +13,12 @@
         <div class="brand-icon"></div>
         <div>
           <h1 class="brand-name">EXOCORTEX</h1>
-          <p class="brand-sub">Cognitive Co-Processor & Autopilot</p>
+          <p class="brand-sub">Autonomous Co-Processor Agent</p>
         </div>
       </div>
       <div class="status-indicator">
         <span class="status-dot"></span>
-        <span class="status-text">COGNITIVE ACTIVE</span>
+        <span class="status-text">AUTONOMOUS</span>
       </div>
     </header>
 
@@ -41,18 +41,26 @@
     <!-- TAB 1: Autonomous Autopilot (Execute Work On Its Own!) -->
     <section class="tab-content active" id="tab-autopilot">
       <div class="autopilot-box">
-        <div class="autopilot-title">Autonomous Web Task Agent</div>
-        <p class="autopilot-desc">Tell Exocortex what to do, and it executes on the page autonomously.</p>
+        <div class="autopilot-title">Autonomous Action Agent</div>
+        <p class="autopilot-desc">Type any command across apps (WhatsApp, Gmail, YouTube, or current page):</p>
 
         <div class="command-bar">
-          <input type="text" id="autopilot-input" placeholder="Type a task: e.g. 'Extract all prices to CSV', 'Scroll to bottom'...">
-          <button id="btn-run-command" class="glow-btn">Run Task</button>
+          <input type="text" id="autopilot-input" placeholder="e.g. 'open whatsapp n text pratyush Hello'">
+          <button id="btn-run-command" class="glow-btn">Execute</button>
         </div>
+
+        <!-- Quick suggestion chips -->
+        <div class="command-chips">
+          <span class="chip" data-cmd="open whatsapp n text pratyush Hello">💬 Text Pratyush</span>
+          <span class="chip" data-cmd="open youtube and search lofi beats">🎥 Search YouTube</span>
+          <span class="chip" data-cmd="open gmail and compose Hello team">✉️ Gmail Compose</span>
+        </div>
+
         <div id="autopilot-status" class="autopilot-status" style="display:none;"></div>
       </div>
 
       <div class="section-title">
-        <span>1-Click Autonomous Actions</span>
+        <span>Instant 1-Click Page Automations</span>
       </div>
 
       <div class="action-grid">
@@ -182,7 +190,7 @@
     </section>
 
     <footer class="deck-footer">
-      <span>Exocortex • Autonomous Agentic Co-Processor</span>
+      <span>Exocortex • Autonomous Cross-App Agent</span>
     </footer>
   </div>
 

@@ -1,6 +1,6 @@
 /**
  * Exocortex — Content Perception, Ambient HUD & Autonomous Actuator
- * Capable of autonomous DOM execution, scraping, and form manipulation.
+ * Includes WhatsApp Web, Gmail, YouTube, and generic DOM automation drivers.
  */
 
 (function () {
@@ -21,9 +21,12 @@
   function init() {
     initAmbientHUD();
     extractAndReportPageDigest();
+
+    // Check if there is a pending autonomous action queued for this tab
+    checkPendingAutomations();
   }
 
-  // Listen for Background & Popup Commands (Autonomous Execution)
+  // Listen for Background & Popup Commands
   try {
     chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       if (message.type === 'EXOCORTEX_WHISPER') {
@@ -33,15 +36,130 @@
         runAutonomousTask(message.task, message.params)
           .then(result => sendResponse({ status: 'success', result }))
           .catch(err => sendResponse({ status: 'error', error: err.message }));
-        return true; // async
+        return true;
+      } else if (message.type === 'EXECUTE_WHATSAPP_ACTION') {
+        automateWhatsApp(message.contact, message.messageText)
+          .then(res => sendResponse({ status: 'success', result: res }))
+          .catch(err => sendResponse({ status: 'error', error: err.message }));
+        return true;
       }
       return true;
     });
   } catch (e) {}
 
   /**
+   * Check if user launched an automation before the page finished loading
+   */
+  async function checkPendingAutomations() {
+    try {
+      const storage = await chrome.storage.local.get(['pendingWhatsAppAction']);
+      if (storage.pendingWhatsAppAction && location.hostname === 'web.whatsapp.com') {
+        const action = storage.pendingWhatsAppAction;
+        // Clear pending
+        await chrome.storage.local.remove(['pendingWhatsAppAction']);
+        showAutopilotBanner(`🤖 Autopilot: Preparing to text "${action.contact}" on WhatsApp...`);
+        // Wait for WhatsApp Web UI to settle
+        setTimeout(() => {
+          automateWhatsApp(action.contact, action.messageText);
+        }, 3000);
+      }
+    } catch (e) {}
+  }
+
+  /**
+   * Superpower: Autonomous WhatsApp Web Automation
+   * 1. Finds search bar
+   * 2. Searches for contact name (e.g. "pratyush")
+   * 3. Clicks the contact chat
+   * 4. Types the message
+   * 5. Sends or stages for 1-click send!
+   */
+  async function automateWhatsApp(contactName, messageText) {
+    showAutopilotBanner(`🤖 Autopilot: Finding "${contactName}" on WhatsApp...`);
+
+    // Helper: wait for element
+    const waitForElement = (selector, timeout = 15000) => {
+      return new Promise((resolve, reject) => {
+        const start = Date.now();
+        const check = () => {
+          const el = document.querySelector(selector);
+          if (el) return resolve(el);
+          if (Date.now() - start > timeout) return reject(new Error(`Timeout waiting for ${selector}`));
+          setTimeout(check, 400);
+        };
+        check();
+      });
+    };
+
+    try {
+      // Step 1: Find WhatsApp search box
+      const searchBox = await waitForElement('div[contenteditable="true"][data-tab="3"], div[title*="Search input"], div[data-testid="chat-list-search"]', 12000);
+      searchBox.focus();
+      document.execCommand('selectAll', false, null);
+      document.execCommand('insertText', false, contactName);
+      searchBox.dispatchEvent(new Event('input', { bubbles: true }));
+
+      showAutopilotBanner(`🔍 Autopilot: Searched "${contactName}". Waiting for chat list...`);
+      await sleep(1500);
+
+      // Step 2: Find contact in search results
+      const chatRows = document.querySelectorAll('div[role="listitem"], div[data-testid="cell-frame-container"], div[data-testid="list-item"]');
+      let targetChat = null;
+
+      for (const row of chatRows) {
+        const text = (row.innerText || '').toLowerCase();
+        if (text.includes(contactName.toLowerCase())) {
+          targetChat = row;
+          break;
+        }
+      }
+
+      if (!targetChat && chatRows.length > 0) {
+        // If exact name isn't matched, pick the top result in the search dropdown
+        targetChat = chatRows[0];
+      }
+
+      if (targetChat) {
+        targetChat.click();
+        showAutopilotBanner(`💬 Autopilot: Opened chat with "${contactName}". Typing message...`);
+      } else {
+        // Fallback: press Enter on search box
+        searchBox.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true }));
+      }
+
+      await sleep(1200);
+
+      // Step 3: Find message input box in footer
+      const messageBox = await waitForElement('footer div[contenteditable="true"], div[data-tab="10"], div[title*="Type a message"]', 10000);
+      messageBox.focus();
+      document.execCommand('insertText', false, messageText);
+      messageBox.dispatchEvent(new Event('input', { bubbles: true }));
+
+      await sleep(600);
+
+      // Step 4: Click Send Button or Press Enter
+      const sendBtn = document.querySelector('button span[data-icon="send"], button[aria-label*="Send"], span[data-testid="send"]');
+      if (sendBtn) {
+        const btn = sendBtn.closest('button') || sendBtn;
+        btn.click();
+      } else {
+        messageBox.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true }));
+      }
+
+      showAutopilotBanner(`✓ Autopilot Done: Sent "${messageText}" to ${contactName} on WhatsApp!`);
+      return { success: true, contact: contactName, message: messageText };
+    } catch (err) {
+      showAutopilotBanner(`⚠️ Autopilot Notice: ${err.message}. (Ensure you are logged into WhatsApp Web)`);
+      throw err;
+    }
+  }
+
+  function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  /**
    * AUTONOMOUS ACTUATOR ENGINE
-   * Executes physical work on the webpage autonomously
    */
   async function runAutonomousTask(taskType, params = {}) {
     showAutopilotBanner(`🤖 Autopilot: Executing "${taskType}"...`);
@@ -67,21 +185,16 @@
     }
   }
 
-  /**
-   * Task 1: Autonomously extract table/card items and trigger CSV download
-   */
   async function executeExtractToCSV() {
     const rows = [];
     rows.push(['Item / Title', 'Extracted Price / Value', 'Context']);
 
-    // 1. Scan HTML tables
     const tableRows = document.querySelectorAll('table tr');
     tableRows.forEach(tr => {
       const cols = Array.from(tr.querySelectorAll('td, th')).map(c => (c.innerText || '').replace(/[\r\n,]/g, ' ').trim());
       if (cols.length >= 2) rows.push(cols);
     });
 
-    // 2. Scan card listings or headings with adjacent prices
     if (rows.length <= 1) {
       const elements = document.querySelectorAll('h1, h2, h3, h4, p, div');
       const priceRegex = /(?:[\$\€\£\₹]|USD|EUR|GBP|INR)\s?(\d{1,3}(?:,\d{3})*(?:\.\d{1,2})?)/i;
@@ -101,12 +214,10 @@
       return { count: 0 };
     }
 
-    // Deduplicate
     const uniqueCsvRows = Array.from(new Set(rows.map(r => r.join(','))));
     const csvContent = 'data:text/csv;charset=utf-8,' + uniqueCsvRows.join('\n');
     const encodedUri = encodeURI(csvContent);
 
-    // Auto-trigger download
     const link = document.createElement('a');
     link.setAttribute('href', encodedUri);
     link.setAttribute('download', `exocortex-extract-${location.hostname}.csv`);
@@ -115,12 +226,9 @@
     link.remove();
 
     showAutopilotBanner(`✓ Autopilot Done: Extracted ${uniqueCsvRows.length - 1} items to CSV!`);
-    return { count: uniqueCsvRows.length - 1, filename: `exocortex-extract-${location.hostname}.csv` };
+    return { count: uniqueCsvRows.length - 1 };
   }
 
-  /**
-   * Task 2: Autonomously hunt for sneaky fine-print, scroll to it, and highlight
-   */
   async function executeHuntAndHighlightTraps() {
     const hazardRegex = /(?:non-refundable|no refunds?|automatically renews?|auto-renew|cancellation fee|restocking fee|mandatory arbitration|binding arbitration)/gi;
     const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null, false);
@@ -141,7 +249,6 @@
       return { found: 0 };
     }
 
-    // Highlight and scroll to first target
     targets.forEach(el => {
       foundCount++;
       el.style.backgroundColor = 'rgba(244, 63, 94, 0.35)';
@@ -155,9 +262,6 @@
     return { found: foundCount };
   }
 
-  /**
-   * Task 3: Autonomously find and dismiss cookie banners / GDPR popups
-   */
   async function executeDismissCookieBanners() {
     const rejectButtons = [];
     const buttons = document.querySelectorAll('button, a, input[type="button"], div[role="button"]');
@@ -171,13 +275,11 @@
     });
 
     if (rejectButtons.length > 0) {
-      // Click the best match
       rejectButtons[0].click();
       showAutopilotBanner('✓ Autopilot Done: Dismissed cookie banner.');
       return { dismissed: true };
     }
 
-    // Fallback: look for generic close icons (X) inside modals
     const closeButtons = document.querySelectorAll('[aria-label*="close" i], [title*="close" i], .close-btn, .modal-close');
     if (closeButtons.length > 0) {
       closeButtons[0].click();
@@ -189,9 +291,6 @@
     return { dismissed: false };
   }
 
-  /**
-   * Task 4: Autonomously auto-fill form fields
-   */
   async function executeAutoFillForm(customProfile = {}) {
     const profile = Object.assign({
       name: 'Alex Mercer',
@@ -223,7 +322,6 @@
       if (valueToSet && !input.value) {
         input.focus();
         input.value = valueToSet;
-        // Trigger realistic events
         input.dispatchEvent(new Event('input', { bubbles: true }));
         input.dispatchEvent(new Event('change', { bubbles: true }));
         input.style.border = '2px solid #10b981';
@@ -231,13 +329,10 @@
       }
     });
 
-    showAutopilotBanner(`✓ Autopilot Done: Filled ${filledCount} form fields with profile.`);
+    showAutopilotBanner(`✓ Autopilot Done: Filled ${filledCount} form fields.`);
     return { filled: filledCount };
   }
 
-  /**
-   * Task 5: Natural Language Web Commands (e.g. scroll, highlight, search)
-   */
   async function executeCustomNaturalCommand(cmd) {
     if (!cmd) return;
     const lower = cmd.toLowerCase().trim();
@@ -257,7 +352,6 @@
     } else if (lower.includes('fill') || lower.includes('form')) {
       return await executeAutoFillForm();
     } else {
-      // General Keyword Highlighter
       const words = lower.replace(/highlight|find|search for/g, '').trim().split(/\s+/);
       const targetWord = words[0];
       if (targetWord && targetWord.length > 2) {
@@ -340,7 +434,7 @@
         :host { all: initial; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color-scheme: dark; }
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
         #exocortex-container { position: fixed; top: 24px; right: 24px; z-index: 2147483647; display: flex; flex-direction: column; align-items: flex-end; pointer-events: none; user-select: none; }
-        .ambient-pill { pointer-events: auto; cursor: pointer; display: flex; align-items: center; gap: 8px; padding: 8px 14px; background: rgba(15, 23, 42, 0.92); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border: 1px solid rgba(99, 102, 241, 0.4); border-radius: 9999px; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45); transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1); }
+        .ambient-pill { pointer-events: auto; cursor: pointer; display: flex; align-items: center; gap: 8px; padding: 8px 14px; background: rgba(15, 23, 42, 0.92); backdrop-filter: blur(16px); border: 1px solid rgba(99, 102, 241, 0.4); border-radius: 9999px; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45); transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1); }
         .ambient-pill:hover { transform: translateY(-2px) scale(1.03); border-color: rgba(56, 189, 248, 0.8); }
         .pill-core { width: 9px; height: 9px; border-radius: 50%; background: #38bdf8; box-shadow: 0 0 8px #38bdf8; }
         .pill-core.alert { background: #f43f5e; box-shadow: 0 0 10px #f43f5e; }
@@ -351,7 +445,7 @@
         .card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
         .card-badge { display: inline-flex; align-items: center; font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.8px; padding: 3px 8px; border-radius: 6px; background: rgba(99, 102, 241, 0.2); color: #818cf8; border: 1px solid rgba(99, 102, 241, 0.4); }
         .card-badge.high { background: rgba(244, 63, 94, 0.18); color: #fb7185; border-color: rgba(244, 63, 94, 0.4); }
-        .close-btn { background: transparent; border: none; color: #94a3b8; cursor: pointer; padding: 4px; border-radius: 4px; display: flex; align-items: center; justify-content: center; }
+        .close-btn { background: transparent; border: none; color: #94a3b8; cursor: pointer; padding: 4px; border-radius: 4px; }
         .close-btn:hover { color: #fff; background: rgba(255, 255, 255, 0.08); }
         .card-title { font-size: 14.5px; font-weight: 700; line-height: 1.35; color: #ffffff; margin-bottom: 8px; }
         .card-body { font-size: 12px; line-height: 1.5; color: #cbd5e1; margin-bottom: 10px; }

@@ -1,5 +1,5 @@
 /**
- * Exocortex — Proactive Cognitive Co-Processor
+ * Exocortex — Proactive Cognitive Co-Processor & Autonomous Dispatcher
  * Background Service Worker (Manifest V3)
  */
 
@@ -7,7 +7,6 @@ const MAX_MEMORY_ITEMS = 30;
 const NOTIFICATION_COOLDOWN_MS = 10000;
 const lastNotificationMap = new Map();
 
-// Initialize Storage Defaults safely
 chrome.runtime.onInstalled.addListener(async () => {
   try {
     const current = await chrome.storage.local.get(['settings', 'memory', 'insights']);
@@ -25,18 +24,22 @@ chrome.runtime.onInstalled.addListener(async () => {
         insights: []
       });
     }
-  } catch (e) {
-    console.warn('[Exocortex] Init storage warning:', e);
-  }
-  console.log('[Exocortex] Cognitive Co-Processor Initialized.');
+  } catch (e) {}
+  console.log('[Exocortex] Autonomous Engine Initialized.');
 });
 
-// Listen for messages safely
+// Listen for messages
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   const senderTabId = sender.tab ? sender.tab.id : null;
 
   try {
     switch (message.type) {
+      case 'DISPATCH_CROSS_TAB_COMMAND':
+        handleCrossTabCommand(message.command)
+          .then(result => sendResponse({ status: 'success', result }))
+          .catch(err => sendResponse({ status: 'error', error: err.message }));
+        return true;
+
       case 'PAGE_DIGEST_UPDATED':
         handlePageDigest(message.payload, senderTabId)
           .then(result => sendResponse({ status: 'ok', result }))
@@ -81,6 +84,106 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
   return true;
 });
+
+/**
+ * Superpower: Cross-Service Natural Language Command Dispatcher
+ * Understands:
+ * - "open whatsapp n text pratyush Hello"
+ * - "open gmail and email john@test.com meeting at 5"
+ * - "open youtube and search lofi beats"
+ * - "open amazon and search mechanical keyboard"
+ */
+async function handleCrossTabCommand(commandText) {
+  if (!commandText) throw new Error('No command provided');
+  const cmd = commandText.trim();
+  const lower = cmd.toLowerCase();
+
+  // 1. WhatsApp Intent
+  // e.g. "open whatsapp n text pratyush Hello" or "whatsapp text mom I am on my way"
+  const waMatch = cmd.match(/(?:open\s+)?whatsapp.*?(?:text|msg|message|send)\s+([a-zA-Z0-9_\s]+?)\s+(?:saying\s+|that\s+)?(.+)$/i);
+  if (waMatch) {
+    const contact = waMatch[1].trim();
+    const messageText = waMatch[2].trim();
+    return await dispatchWhatsAppAction(contact, messageText);
+  }
+
+  // 2. Gmail Intent
+  // e.g. "open gmail and email user@gmail.com Hello there"
+  const gmailMatch = cmd.match(/(?:open\s+)?(?:gmail|mail).*?(?:email|compose|send)\s+([a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+)?\s*(.*)$/i);
+  if (gmailMatch) {
+    const to = gmailMatch[1] || '';
+    const body = encodeURIComponent(gmailMatch[2] || '');
+    const url = `https://mail.google.com/mail/?view=cm&fs=1&to=${to}&body=${body}`;
+    const tab = await chrome.tabs.create({ url });
+    return { app: 'Gmail', action: 'opened_compose', tabId: tab.id };
+  }
+
+  // 3. YouTube Intent
+  // e.g. "open youtube and search coldplay"
+  const ytMatch = cmd.match(/(?:open\s+)?youtube.*?(?:search|play|find)\s+(.+)$/i);
+  if (ytMatch) {
+    const query = encodeURIComponent(ytMatch[1].trim());
+    const tab = await chrome.tabs.create({ url: `https://www.youtube.com/results?search_query=${query}` });
+    return { app: 'YouTube', action: 'searched', query: ytMatch[1], tabId: tab.id };
+  }
+
+  // 4. Amazon Intent
+  const amzMatch = cmd.match(/(?:open\s+)?amazon.*?(?:search|find|buy)\s+(.+)$/i);
+  if (amzMatch) {
+    const query = encodeURIComponent(amzMatch[1].trim());
+    const tab = await chrome.tabs.create({ url: `https://www.amazon.com/s?k=${query}` });
+    return { app: 'Amazon', action: 'searched', query: amzMatch[1], tabId: tab.id };
+  }
+
+  // Fallback: Send to active tab's actuator
+  const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  if (activeTab && activeTab.id) {
+    return await chrome.tabs.sendMessage(activeTab.id, {
+      type: 'EXECUTE_AUTONOMOUS_TASK',
+      task: 'CUSTOM_COMMAND',
+      params: { command: cmd }
+    });
+  }
+
+  throw new Error(`Could not parse command intent: "${cmd}"`);
+}
+
+/**
+ * Dispatcher for WhatsApp Web
+ */
+async function dispatchWhatsAppAction(contact, messageText) {
+  // Check if WhatsApp Web tab is already open
+  const tabs = await chrome.tabs.query({});
+  const existingTab = tabs.find(t => t.url && t.url.includes('web.whatsapp.com'));
+
+  if (existingTab && existingTab.id) {
+    // Focus existing tab
+    await chrome.tabs.update(existingTab.id, { active: true });
+    if (existingTab.windowId) {
+      await chrome.windows.update(existingTab.windowId, { focused: true });
+    }
+
+    // Send action
+    try {
+      await chrome.tabs.sendMessage(existingTab.id, {
+        type: 'EXECUTE_WHATSAPP_ACTION',
+        contact,
+        messageText
+      });
+      return { status: 'sent_to_existing_tab', contact, messageText };
+    } catch (e) {
+      // Content script might need a moment
+    }
+  }
+
+  // If tab not open, stage pending action in storage and create tab
+  await chrome.storage.local.set({
+    pendingWhatsAppAction: { contact, messageText, timestamp: Date.now() }
+  });
+
+  const newTab = await chrome.tabs.create({ url: 'https://web.whatsapp.com' });
+  return { status: 'opened_whatsapp_tab', contact, messageText, tabId: newTab.id };
+}
 
 async function handlePageDigest(digest, tabId) {
   if (!digest || !digest.url) return;
@@ -156,9 +259,7 @@ async function handlePageDigest(digest, tabId) {
         type: 'EXOCORTEX_WHISPER',
         payload: insight
       });
-    } catch (err) {
-      // Content script may not be available on this page, safely ignore
-    }
+    } catch (err) {}
   }
 
   return { status: 'analyzed', insightFound: !!insight };
@@ -265,8 +366,10 @@ Respond with ONLY valid JSON:
     })
   });
 
+  if (!response.ok) return null;
   const json = await response.json();
   const rawText = json.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (!rawText) return null;
   return JSON.parse(rawText);
 }
 
@@ -471,9 +574,7 @@ async function handleDemoAnalysis(tabId) {
         type: 'EXOCORTEX_WHISPER',
         payload: demoInsight
       });
-    } catch (e) {
-      // Ignore if tab is not content-script enabled (e.g. chrome://)
-    }
+    } catch (e) {}
   }
   return demoInsight;
 }

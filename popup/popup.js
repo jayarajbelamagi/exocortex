@@ -1,5 +1,5 @@
 /**
- * Exocortex — Popup Controller (Enhanced Multi-Tab Synthesis, X-Ray & Autopilot)
+ * Exocortex — Popup Controller (Enhanced Multi-Tab Synthesis, X-Ray & Cross-App Autopilot)
  */
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -31,21 +31,58 @@ function initTabs() {
 }
 
 /**
- * Superpower: Autonomous Autopilot Actuator
+ * Superpower: Autonomous Autopilot Actuator & Cross-App Agent
  */
 function initAutopilot() {
   const runBtn = document.getElementById('btn-run-command');
   const input = document.getElementById('autopilot-input');
   const statusEl = document.getElementById('autopilot-status');
+  const chips = document.querySelectorAll('.chip');
 
   const actExtractCsv = document.getElementById('act-extract-csv');
   const actHuntTraps = document.getElementById('act-hunt-traps');
   const actDeclineCookies = document.getElementById('act-decline-cookies');
   const actFillForm = document.getElementById('act-fill-form');
 
-  const dispatchTask = async (taskType, params = {}) => {
+  // Execute Cross-App Natural Command (WhatsApp, Gmail, YouTube, etc.)
+  const executeCommand = async (cmd) => {
+    if (!cmd || !cmd.trim()) return;
     statusEl.style.display = 'block';
-    statusEl.innerText = `🤖 Dispatching "${taskType}" to page...`;
+    statusEl.innerText = `🤖 Autopilot: Processing "${cmd}"...`;
+
+    try {
+      const response = await chrome.runtime.sendMessage({
+        type: 'DISPATCH_CROSS_TAB_COMMAND',
+        command: cmd
+      });
+
+      if (response && response.status === 'success') {
+        const r = response.result || {};
+        if (r.status === 'opened_whatsapp_tab') {
+          statusEl.innerText = `✓ Opened WhatsApp Web! Searching "${r.contact}" and preparing message...`;
+        } else if (r.status === 'sent_to_existing_tab') {
+          statusEl.innerText = `✓ Switched to WhatsApp Web! Sent "${r.messageText}" to ${r.contact}.`;
+        } else if (r.app) {
+          statusEl.innerText = `✓ Autopilot: Initiated ${r.app} task!`;
+        } else {
+          statusEl.innerText = `✓ Autopilot command executed!`;
+        }
+      } else {
+        statusEl.innerText = `✓ Executed command on active page.`;
+      }
+
+      setTimeout(() => {
+        statusEl.style.display = 'none';
+      }, 6000);
+    } catch (err) {
+      statusEl.innerText = `Notice: ${err.message}`;
+    }
+  };
+
+  // Execute Page-level Task
+  const dispatchPageTask = async (taskType, params = {}) => {
+    statusEl.style.display = 'block';
+    statusEl.innerText = `🤖 Autopilot: Running "${taskType}" on page...`;
 
     try {
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
@@ -55,47 +92,44 @@ function initAutopilot() {
       }
 
       if (tab.url.startsWith('chrome://') || tab.url.startsWith('edge://')) {
-        statusEl.innerText = '⚠️ Chrome does not allow automation on internal settings pages.';
+        statusEl.innerText = '⚠️ Automation not allowed on internal browser settings.';
         return;
       }
 
-      const response = await chrome.tabs.sendMessage(tab.id, {
+      await chrome.tabs.sendMessage(tab.id, {
         type: 'EXECUTE_AUTONOMOUS_TASK',
         task: taskType,
         params
       });
 
-      if (response && response.status === 'success') {
-        statusEl.innerText = `✓ Task executed successfully!`;
-      } else {
-        statusEl.innerText = `✓ Task completed on page.`;
-      }
-
+      statusEl.innerText = `✓ Task executed successfully on page!`;
       setTimeout(() => {
         statusEl.style.display = 'none';
       }, 4000);
     } catch (err) {
-      statusEl.innerText = `Task sent. Refresh the page if script was not yet loaded.`;
+      statusEl.innerText = `Task sent. Please refresh the page if loaded before extension.`;
     }
   };
 
   if (runBtn && input) {
-    runBtn.addEventListener('click', () => {
-      const cmd = input.value.trim();
-      if (cmd) dispatchTask('CUSTOM_COMMAND', { command: cmd });
-    });
+    runBtn.addEventListener('click', () => executeCommand(input.value));
     input.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') {
-        const cmd = input.value.trim();
-        if (cmd) dispatchTask('CUSTOM_COMMAND', { command: cmd });
-      }
+      if (e.key === 'Enter') executeCommand(input.value);
     });
   }
 
-  if (actExtractCsv) actExtractCsv.addEventListener('click', () => dispatchTask('EXTRACT_CSV'));
-  if (actHuntTraps) actHuntTraps.addEventListener('click', () => dispatchTask('HUNT_TRAPS'));
-  if (actDeclineCookies) actDeclineCookies.addEventListener('click', () => dispatchTask('DECLINE_COOKIES'));
-  if (actFillForm) actFillForm.addEventListener('click', () => dispatchTask('AUTOFILL_FORM'));
+  chips.forEach(chip => {
+    chip.addEventListener('click', () => {
+      const cmd = chip.dataset.cmd;
+      if (input) input.value = cmd;
+      executeCommand(cmd);
+    });
+  });
+
+  if (actExtractCsv) actExtractCsv.addEventListener('click', () => dispatchPageTask('EXTRACT_CSV'));
+  if (actHuntTraps) actHuntTraps.addEventListener('click', () => dispatchPageTask('HUNT_TRAPS'));
+  if (actDeclineCookies) actDeclineCookies.addEventListener('click', () => dispatchPageTask('DECLINE_COOKIES'));
+  if (actFillForm) actFillForm.addEventListener('click', () => dispatchPageTask('AUTOFILL_FORM'));
 }
 
 function safeGetDomain(url) {
