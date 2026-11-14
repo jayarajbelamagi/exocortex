@@ -13,86 +13,116 @@
         <div class="brand-icon"></div>
         <div>
           <h1 class="brand-name">EXOCORTEX</h1>
-          <p class="brand-sub">Cognitive Co-Processor v1.0</p>
+          <p class="brand-sub">Cognitive Co-Processor</p>
         </div>
       </div>
       <div class="status-indicator">
         <span class="status-dot"></span>
-        <span class="status-text">OBSERVING</span>
+        <span class="status-text">COGNITIVE ACTIVE</span>
       </div>
     </header>
 
+    <!-- Superpower Omnibar: Ask Across All Tabs -->
+    <div class="search-box">
+      <input type="text" id="omni-query" placeholder="💬 Ask across your tabs (e.g. price, flight, policy)...">
+      <button id="omni-btn">Ask</button>
+    </div>
+    <div id="search-results" class="search-results" style="display:none;"></div>
+
     <!-- Nav Tabs -->
     <nav class="tabs">
-      <button class="tab-btn active" data-tab="stream">Insights & Stream</button>
+      <button class="tab-btn active" data-tab="synthesis">⚡ Synthesis</button>
+      <button class="tab-btn" data-tab="xray">Page X-Ray</button>
       <button class="tab-btn" data-tab="memory">Session Memory</button>
-      <button class="tab-btn" data-tab="settings">Brain Engine</button>
+      <button class="tab-btn" data-tab="settings">Brain</button>
     </nav>
 
-    <!-- TAB 1: Stream & Insights -->
-    <section class="tab-content active" id="tab-stream">
-      <div class="metrics-row">
-        <div class="metric-card">
-          <span class="metric-val" id="metric-memory">0</span>
-          <span class="metric-label">Tabs Monitored</span>
+    <!-- TAB 1: Multi-Tab Synthesis & Radar -->
+    <section class="tab-content active" id="tab-synthesis">
+      <!-- One-Click Multi-Tab Synthesis Button -->
+      <div class="action-card">
+        <div class="action-card-header">
+          <div>
+            <strong>Cross-Tab Executive Brief</strong>
+            <p>Compare prices, specs, and consensus across open tabs.</p>
+          </div>
+          <button class="glow-btn" id="btn-synthesize">⚡ Synthesize Tabs</button>
         </div>
-        <div class="metric-card">
-          <span class="metric-val" id="metric-insights">0</span>
-          <span class="metric-label">Dot-Connections</span>
+        <div id="synthesis-output" class="synthesis-box" style="display:none;">
+          <div class="synthesis-loading" id="synthesis-loading">Synthesizing cross-tab intelligence...</div>
+          <div id="synthesis-result" style="display:none;"></div>
         </div>
       </div>
 
       <div class="section-title">
-        <span>Active Insights</span>
-        <button class="link-btn" id="btn-demo-test">⚡ Test Demo Alert</button>
+        <span>Proactive Radar & Warnings</span>
+        <button class="link-btn" id="btn-demo-test">Test Demo</button>
       </div>
 
       <div class="insights-feed" id="insights-feed">
         <div class="empty-state" id="insights-empty">
-          <div class="empty-icon">🧠</div>
-          <p>No critical blindspots or clashes detected yet.</p>
-          <small>Browse sites across multiple tabs or click "Test Demo Alert" above.</small>
+          <div class="empty-icon">🛡️</div>
+          <p>Radar scanning in real time.</p>
+          <small>Open multiple tabs or click "Synthesize Tabs" above.</small>
         </div>
       </div>
     </section>
 
-    <!-- TAB 2: Session Memory -->
-    <section class="tab-content" id="tab-memory">
-      <div class="section-title">
-        <span>Memory Ring Buffer</span>
-        <button class="link-btn text-danger" id="btn-clear-mem">Clear Memory</button>
-      </div>
-      <p class="section-desc">Recent tab digests held in local memory for cross-tab synthesis:</p>
-      
-      <div class="memory-list" id="memory-list">
-        <!-- Dynamically populated -->
+    <!-- TAB 2: Page X-Ray (Current Tab Instant Breakdown) -->
+    <section class="tab-content" id="tab-xray">
+      <div class="xray-card" id="current-page-xray">
+        <div class="xray-header">
+          <span class="card-badge" id="xray-tab-badge">CURRENT PAGE</span>
+          <span id="xray-tab-category" class="category-pill">GENERAL</span>
+        </div>
+        <h3 class="xray-title" id="xray-tab-title">Loading current page...</h3>
+        <p class="xray-meta" id="xray-tab-meta"></p>
+
+        <div class="xray-section">
+          <strong>💡 Key Takeaways (TL;DR):</strong>
+          <div class="takeaways-list" id="xray-takeaways">
+            <!-- Dynamically populated -->
+          </div>
+        </div>
+
+        <div class="xray-section" id="xray-traps-section" style="display:none;">
+          <strong>⚠️ Fine-Print Hazards & Clauses:</strong>
+          <div class="trap-callout" id="xray-trap-text"></div>
+        </div>
       </div>
     </section>
 
-    <!-- TAB 3: Brain Engine Settings -->
+    <!-- TAB 3: Session Memory -->
+    <section class="tab-content" id="tab-memory">
+      <div class="section-title">
+        <span>Session Ring Buffer (<span id="metric-memory">0</span>)</span>
+        <button class="link-btn text-danger" id="btn-clear-mem">Clear All</button>
+      </div>
+      <div class="memory-list" id="memory-list"></div>
+    </section>
+
+    <!-- TAB 4: Brain Engine Settings -->
     <section class="tab-content" id="tab-settings">
       <div class="form-group">
-        <label class="form-label">Cognitive Engine Mode</label>
+        <label class="form-label">Reasoning Engine</label>
         <select class="form-select" id="engine-mode">
-          <option value="hybrid">Hybrid (Local Heuristics + Deep Gemini AI)</option>
+          <option value="hybrid">Hybrid (Local Heuristics + Gemini Flash)</option>
           <option value="local">Local Only (100% On-Device Heuristics)</option>
         </select>
-        <span class="form-hint">Local mode uses zero network calls. Hybrid unlocks deep semantic reasoning.</span>
       </div>
 
-      <div class="form-group" id="gemini-key-group">
+      <div class="form-group">
         <label class="form-label">Google Gemini API Key (Optional)</label>
         <div class="input-with-btn">
           <input type="password" class="form-input" id="gemini-api-key" placeholder="AIzaSy...">
           <button class="toggle-btn" id="btn-toggle-key">👁️</button>
         </div>
-        <span class="form-hint">Used for deep cross-tab synthesis. Stored locally in your browser storage.</span>
+        <span class="form-hint">Enables deep comparative synthesis across open tabs.</span>
       </div>
 
       <div class="form-group">
-        <label class="form-label">Active Proactive Whispers</label>
         <div class="toggle-row">
-          <span>Show ambient floating HUD when insights appear</span>
+          <span>Show ambient floating HUD</span>
           <input type="checkbox" id="proactive-toggle" checked>
         </div>
       </div>
@@ -101,9 +131,8 @@
       <div class="feedback-msg" id="settings-feedback"></div>
     </section>
 
-    <!-- Footer -->
     <footer class="deck-footer">
-      <span>Zero cloud telemetry • Sovereign Local Intelligence</span>
+      <span>Exocortex • Sovereign Real-Time Intelligence</span>
     </footer>
   </div>
 
