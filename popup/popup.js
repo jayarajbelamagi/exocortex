@@ -58,14 +58,12 @@ function initAutopilot() {
 
       if (response && response.status === 'success') {
         const r = response.result || {};
-        if (r.status === 'opened_whatsapp_tab') {
-          statusEl.innerText = `✓ Opened WhatsApp Web! Searching "${r.contact}" and preparing message...`;
-        } else if (r.status === 'sent_to_existing_tab') {
-          statusEl.innerText = `✓ Switched to WhatsApp Web! Sent "${r.messageText}" to ${r.contact}.`;
+        if (r.status === 'opened_whatsapp_tab' || r.status === 'sent_to_existing_tab') {
+          statusEl.innerText = `🚀 Switched to WhatsApp Web! Look at the top of your WhatsApp tab to see the live Autopilot steps executing.`;
         } else if (r.app) {
           statusEl.innerText = `✓ Autopilot: Initiated ${r.app} task!`;
         } else {
-          statusEl.innerText = `✓ Autopilot command executed!`;
+          statusEl.innerText = `✓ Autopilot task executing on active page!`;
         }
       } else {
         statusEl.innerText = `✓ Executed command on active page.`;
