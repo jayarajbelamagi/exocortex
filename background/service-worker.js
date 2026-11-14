@@ -7,71 +7,81 @@ const MAX_MEMORY_ITEMS = 30;
 const NOTIFICATION_COOLDOWN_MS = 10000;
 const lastNotificationMap = new Map();
 
-// Initialize Storage Defaults
+// Initialize Storage Defaults safely
 chrome.runtime.onInstalled.addListener(async () => {
-  const current = await chrome.storage.local.get(['settings', 'memory', 'insights']);
-  if (!current.settings) {
-    await chrome.storage.local.set({
-      settings: {
-        engineMode: 'hybrid',
-        geminiApiKey: '',
-        geminiModel: 'gemini-1.5-flash',
-        proactiveAlerts: true,
-        privacyMode: false,
-        pausedDomains: []
-      },
-      memory: [],
-      insights: []
-    });
+  try {
+    const current = await chrome.storage.local.get(['settings', 'memory', 'insights']);
+    if (!current.settings) {
+      await chrome.storage.local.set({
+        settings: {
+          engineMode: 'hybrid',
+          geminiApiKey: '',
+          geminiModel: 'gemini-1.5-flash',
+          proactiveAlerts: true,
+          privacyMode: false,
+          pausedDomains: []
+        },
+        memory: [],
+        insights: []
+      });
+    }
+  } catch (e) {
+    console.warn('[Exocortex] Init storage warning:', e);
   }
   console.log('[Exocortex] Cognitive Co-Processor Initialized.');
 });
 
-// Listen for messages
+// Listen for messages safely
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   const senderTabId = sender.tab ? sender.tab.id : null;
 
-  switch (message.type) {
-    case 'PAGE_DIGEST_UPDATED':
-      handlePageDigest(message.payload, senderTabId)
-        .then(result => sendResponse({ status: 'ok', result }))
-        .catch(err => sendResponse({ status: 'error', error: err.message }));
-      return true;
+  try {
+    switch (message.type) {
+      case 'PAGE_DIGEST_UPDATED':
+        handlePageDigest(message.payload, senderTabId)
+          .then(result => sendResponse({ status: 'ok', result }))
+          .catch(err => sendResponse({ status: 'error', error: err.message }));
+        return true;
 
-    case 'SYNTHESIZE_OPEN_TABS':
-      synthesizeOpenTabs()
-        .then(result => sendResponse({ status: 'ok', synthesis: result }))
-        .catch(err => sendResponse({ status: 'error', error: err.message }));
-      return true;
+      case 'SYNTHESIZE_OPEN_TABS':
+        synthesizeOpenTabs()
+          .then(result => sendResponse({ status: 'ok', synthesis: result }))
+          .catch(err => sendResponse({ status: 'error', error: err.message }));
+        return true;
 
-    case 'QUERY_MEMORY':
-      queryMemory(message.query)
-        .then(results => sendResponse({ status: 'ok', results }))
-        .catch(err => sendResponse({ status: 'error', error: err.message }));
-      return true;
+      case 'QUERY_MEMORY':
+        queryMemory(message.query)
+          .then(results => sendResponse({ status: 'ok', results }))
+          .catch(err => sendResponse({ status: 'error', error: err.message }));
+        return true;
 
-    case 'TRIGGER_DEMO_ANALYSIS':
-      handleDemoAnalysis(message.tabId)
-        .then(result => sendResponse({ status: 'ok', result }))
-        .catch(err => sendResponse({ status: 'error', error: err.message }));
-      return true;
+      case 'TRIGGER_DEMO_ANALYSIS':
+        handleDemoAnalysis(message.tabId)
+          .then(result => sendResponse({ status: 'ok', result }))
+          .catch(err => sendResponse({ status: 'error', error: err.message }));
+        return true;
 
-    case 'CLEAR_MEMORY':
-      clearMemory().then(() => sendResponse({ status: 'cleared' }));
-      return true;
+      case 'CLEAR_MEMORY':
+        clearMemory()
+          .then(() => sendResponse({ status: 'cleared' }))
+          .catch(err => sendResponse({ status: 'error', error: err.message }));
+        return true;
 
-    case 'GET_STATUS':
-      getStatus().then(data => sendResponse(data));
-      return true;
+      case 'GET_STATUS':
+        getStatus()
+          .then(data => sendResponse(data))
+          .catch(err => sendResponse({ status: 'error', error: err.message }));
+        return true;
 
-    default:
-      sendResponse({ status: 'unknown_message' });
+      default:
+        sendResponse({ status: 'unknown_message' });
+    }
+  } catch (err) {
+    sendResponse({ status: 'error', error: err.message });
   }
+  return true;
 });
 
-/**
- * Handle incoming semantic digest
- */
 async function handlePageDigest(digest, tabId) {
   if (!digest || !digest.url) return;
 
@@ -79,8 +89,14 @@ async function handlePageDigest(digest, tabId) {
   const settings = storage.settings || {};
   const pausedDomains = settings.pausedDomains || [];
 
-  const urlObj = new URL(digest.url);
-  if (pausedDomains.includes(urlObj.hostname) || settings.privacyMode) {
+  let hostname = '';
+  try {
+    hostname = new URL(digest.url).hostname;
+  } catch (e) {
+    hostname = 'unknown';
+  }
+
+  if (pausedDomains.includes(hostname) || settings.privacyMode) {
     return { status: 'skipped_privacy' };
   }
 
@@ -91,7 +107,7 @@ async function handlePageDigest(digest, tabId) {
     id: 'mem_' + Date.now(),
     tabId,
     url: digest.url,
-    domain: urlObj.hostname,
+    domain: hostname,
     title: digest.title || 'Untitled Page',
     timestamp: Date.now(),
     category: digest.category || 'general',
@@ -101,8 +117,7 @@ async function handlePageDigest(digest, tabId) {
     finePrintHazards: digest.finePrintHazards || [],
     keyClaims: digest.keyClaims || [],
     keyTakeaways: digest.keyTakeaways || [],
-    summary: digest.summary || '',
-    darkPatterns: digest.darkPatterns || []
+    summary: digest.summary || ''
   };
 
   memory.unshift(memoryItem);
@@ -111,7 +126,7 @@ async function handlePageDigest(digest, tabId) {
   }
   await chrome.storage.local.set({ memory });
 
-  if (settings.proactiveAlerts === false) {
+  if (settings.proactiveAlerts === false || !tabId) {
     return { status: 'learning_silently' };
   }
 
@@ -142,16 +157,13 @@ async function handlePageDigest(digest, tabId) {
         payload: insight
       });
     } catch (err) {
-      console.warn('[Exocortex] Tab message failed:', err);
+      // Content script may not be available on this page, safely ignore
     }
   }
 
   return { status: 'analyzed', insightFound: !!insight };
 }
 
-/**
- * Superpower 2: Synthesize All Currently Open Tabs
- */
 async function synthesizeOpenTabs() {
   const tabs = await chrome.tabs.query({ currentWindow: true });
   const storage = await chrome.storage.local.get(['memory', 'settings']);
@@ -164,7 +176,7 @@ async function synthesizeOpenTabs() {
   if (activeTabsMemory.length === 0) {
     return {
       title: "No Analyzed Tabs in Current Session",
-      summary: "Browse a few pages or articles to build context, then hit Synthesize again.",
+      summary: "Browse a few pages or articles to build context, then click Synthesize again.",
       points: []
     };
   }
@@ -225,7 +237,7 @@ function generateLocalTabSynthesis(items) {
 async function generateGeminiTabSynthesis(items, apiKey, modelName = 'gemini-1.5-flash') {
   const context = items.map((item, idx) => `[Tab ${idx + 1}] ${item.title} (${item.domain})\nTakeaways: ${(item.keyTakeaways || []).join('; ')}\nPrices: ${item.prices.map(p => p.raw).join(', ')}\nSummary: ${item.summary.slice(0, 300)}`).join('\n\n');
 
-  const prompt = `You are Exocortex. The user has multiple tabs open simultaneously. Provide an executive synthesis:
+  const prompt = `You are Exocortex. Provide an executive multi-tab synthesis:
 1. Compare differences, contradictions, or pricing across these tabs.
 2. What is the consensus or best recommendation?
 3. What is the hidden catch or trap?
@@ -237,7 +249,7 @@ Respond with ONLY valid JSON:
 {
   "title": "Clear Synthesis Headline",
   "summary": "1-2 sentence executive overview comparing the tabs",
-  "points": ["Bullet point 1 (comparison/price)", "Bullet point 2 (catch/contradiction)", "Bullet point 3 (recommended action)"],
+  "points": ["Point 1", "Point 2", "Point 3"],
   "tabBreakdowns": [
     { "title": "Tab Title", "domain": "domain.com", "takeaways": ["Key point 1"] }
   ]
@@ -258,9 +270,6 @@ Respond with ONLY valid JSON:
   return JSON.parse(rawText);
 }
 
-/**
- * Superpower 3: Natural Language Query Across Tabs
- */
 async function queryMemory(queryString) {
   if (!queryString || !queryString.trim()) return [];
   const query = queryString.toLowerCase().trim();
@@ -457,10 +466,14 @@ async function handleDemoAnalysis(tabId) {
   };
 
   if (tabId) {
-    await chrome.tabs.sendMessage(tabId, {
-      type: 'EXOCORTEX_WHISPER',
-      payload: demoInsight
-    });
+    try {
+      await chrome.tabs.sendMessage(tabId, {
+        type: 'EXOCORTEX_WHISPER',
+        payload: demoInsight
+      });
+    } catch (e) {
+      // Ignore if tab is not content-script enabled (e.g. chrome://)
+    }
   }
   return demoInsight;
 }

@@ -1,6 +1,6 @@
 /**
  * Exocortex — Content Perception & Ambient HUD
- * Injected into active web pages. Uses Shadow DOM for total style isolation.
+ * Injected into web pages. Uses Shadow DOM for total style isolation.
  */
 
 (function () {
@@ -12,91 +12,137 @@
   let currentDigest = null;
   let autoHideTimer = null;
 
-  initAmbientHUD();
-  extractAndReportPageDigest();
-
-  chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-    if (message.type === 'EXOCORTEX_WHISPER') {
-      presentInsight(message.payload);
-      sendResponse({ status: 'displayed' });
-    }
-  });
-
-  function initAmbientHUD() {
-    const host = document.createElement('exocortex-hud-root');
-    host.style.all = 'initial';
-    document.body.appendChild(host);
-
-    shadowRoot = host.attachShadow({ mode: 'open' });
-
-    const styleLink = document.createElement('link');
-    styleLink.rel = 'stylesheet';
-    styleLink.href = chrome.runtime.getURL('content/content.css');
-    shadowRoot.appendChild(styleLink);
-
-    const container = document.createElement('div');
-    container.id = 'exocortex-container';
-    container.innerHTML = `
-      <div class="ambient-pill" id="exo-pill" title="Click for Page X-Ray">
-        <div class="pill-core" id="exo-core"></div>
-        <span class="pill-label">EXOCORTEX</span>
-        <span class="pill-badge" id="exo-badge" style="display:none;">0</span>
-      </div>
-
-      <div class="insight-card" id="exo-card">
-        <div class="card-header">
-          <span class="card-badge" id="card-badge">COGNITIVE X-RAY</span>
-          <button class="close-btn" id="exo-close" title="Dismiss">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-              <line x1="18" y1="6" x2="6" y2="18"></line>
-              <line x1="6" y1="6" x2="18" y2="18"></line>
-            </svg>
-          </button>
-        </div>
-        <div class="card-title" id="card-title">Analyzing page...</div>
-        <div class="card-body" id="card-body"></div>
-        <div class="xray-points" id="xray-points"></div>
-        <div class="snippet-box" id="snippet-box" style="display:none;"></div>
-        <div class="cross-tab-box" id="cross-tab-box" style="display:none;">
-          <div style="font-weight: 700; margin-bottom: 2px;">Cross-Tab Reference:</div>
-          <div class="cross-tab-title" id="cross-tab-title"></div>
-        </div>
-        <div class="card-footer">
-          <span class="dismiss-link" id="exo-dismiss">Close</span>
-          <button class="action-btn" id="exo-action">Got it</button>
-        </div>
-      </div>
-    `;
-
-    shadowRoot.appendChild(container);
-
-    const pill = shadowRoot.getElementById('exo-pill');
-    const card = shadowRoot.getElementById('exo-card');
-    const closeBtn = shadowRoot.getElementById('exo-close');
-    const dismissLink = shadowRoot.getElementById('exo-dismiss');
-    const actionBtn = shadowRoot.getElementById('exo-action');
-
-    // Clicking the ambient pill opens the Cognitive X-Ray of the current page!
-    pill.addEventListener('click', () => {
-      if (card.classList.contains('visible')) {
-        hideInsightCard();
-      } else {
-        if (activeInsight) {
-          presentInsight(activeInsight);
-        } else {
-          presentPageXRay();
-        }
-      }
-    });
-
-    closeBtn.addEventListener('click', hideInsightCard);
-    dismissLink.addEventListener('click', hideInsightCard);
-    actionBtn.addEventListener('click', hideInsightCard);
+  // Safe startup when DOM is ready
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
   }
 
-  /**
-   * Superpower 1: Instant Page Cognitive X-Ray (On any webpage!)
-   */
+  function init() {
+    initAmbientHUD();
+    extractAndReportPageDigest();
+  }
+
+  // Safe message listener
+  try {
+    chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+      if (message.type === 'EXOCORTEX_WHISPER') {
+        presentInsight(message.payload);
+        sendResponse({ status: 'displayed' });
+      }
+      return true;
+    });
+  } catch (e) {
+    // Context invalidated, ignore
+  }
+
+  function initAmbientHUD() {
+    if (!document.body) {
+      setTimeout(initAmbientHUD, 200);
+      return;
+    }
+
+    try {
+      const host = document.createElement('exocortex-hud-root');
+      host.id = 'exocortex-hud-root';
+      host.style.all = 'initial';
+      document.body.appendChild(host);
+
+      shadowRoot = host.attachShadow({ mode: 'open' });
+
+      // Embed CSS directly to avoid CSP network fetch errors
+      const style = document.createElement('style');
+      style.textContent = `
+        :host { all: initial; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color-scheme: dark; }
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        #exocortex-container { position: fixed; top: 24px; right: 24px; z-index: 2147483647; display: flex; flex-direction: column; align-items: flex-end; pointer-events: none; user-select: none; }
+        .ambient-pill { pointer-events: auto; cursor: pointer; display: flex; align-items: center; gap: 8px; padding: 8px 14px; background: rgba(15, 23, 42, 0.92); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border: 1px solid rgba(99, 102, 241, 0.4); border-radius: 9999px; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45); transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1); }
+        .ambient-pill:hover { transform: translateY(-2px) scale(1.03); border-color: rgba(56, 189, 248, 0.8); }
+        .pill-core { width: 9px; height: 9px; border-radius: 50%; background: #38bdf8; box-shadow: 0 0 8px #38bdf8; }
+        .pill-core.alert { background: #f43f5e; box-shadow: 0 0 10px #f43f5e; }
+        .pill-label { font-size: 11.5px; font-weight: 700; color: #f1f5f9; letter-spacing: 0.8px; }
+        .pill-badge { background: #4f46e5; color: #fff; font-size: 10px; font-weight: 800; padding: 1px 6px; border-radius: 8px; }
+        .insight-card { pointer-events: auto; position: relative; width: 380px; max-width: 90vw; margin-top: 10px; padding: 18px 20px; background: linear-gradient(135deg, rgba(15, 23, 42, 0.97) 0%, rgba(26, 34, 52, 0.98) 100%); backdrop-filter: blur(24px); border: 1px solid rgba(255, 255, 255, 0.12); border-top: 2px solid #38bdf8; border-radius: 16px; box-shadow: 0 24px 50px rgba(0, 0, 0, 0.7); color: #f8fafc; display: none; opacity: 0; transform: translateY(-8px); transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
+        .insight-card.visible { display: block; opacity: 1; transform: translateY(0); }
+        .card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+        .card-badge { display: inline-flex; align-items: center; font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.8px; padding: 3px 8px; border-radius: 6px; background: rgba(99, 102, 241, 0.2); color: #818cf8; border: 1px solid rgba(99, 102, 241, 0.4); }
+        .card-badge.high { background: rgba(244, 63, 94, 0.18); color: #fb7185; border-color: rgba(244, 63, 94, 0.4); }
+        .close-btn { background: transparent; border: none; color: #94a3b8; cursor: pointer; padding: 4px; border-radius: 4px; display: flex; align-items: center; justify-content: center; }
+        .close-btn:hover { color: #fff; background: rgba(255, 255, 255, 0.08); }
+        .card-title { font-size: 14.5px; font-weight: 700; line-height: 1.35; color: #ffffff; margin-bottom: 8px; }
+        .card-body { font-size: 12px; line-height: 1.5; color: #cbd5e1; margin-bottom: 10px; }
+        .xray-points { margin: 8px 0; display: flex; flex-direction: column; gap: 6px; }
+        .xray-point { display: flex; align-items: flex-start; gap: 8px; font-size: 12px; color: #cbd5e1; line-height: 1.45; }
+        .xray-bullet { color: #38bdf8; font-weight: bold; }
+        .cross-tab-box { margin: 8px 0; padding: 8px 12px; background: rgba(0, 0, 0, 0.4); border-radius: 8px; border-left: 3px solid #38bdf8; font-size: 11.5px; color: #94a3b8; }
+        .cross-tab-title { font-weight: 600; color: #e2e8f0; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .snippet-box { font-size: 11.5px; font-style: italic; color: #fca5a5; background: rgba(244, 63, 94, 0.12); padding: 8px 10px; border-radius: 6px; margin: 8px 0; border-left: 2px solid #f43f5e; }
+        .card-footer { display: flex; align-items: center; justify-content: space-between; padding-top: 12px; border-top: 1px solid rgba(255, 255, 255, 0.08); }
+        .action-btn { font-size: 11.5px; font-weight: 700; padding: 6px 12px; border-radius: 8px; background: #4f46e5; color: #ffffff; border: none; cursor: pointer; }
+        .action-btn:hover { background: #6366f1; }
+        .dismiss-link { font-size: 11px; color: #64748b; cursor: pointer; }
+        .dismiss-link:hover { color: #cbd5e1; }
+      `;
+      shadowRoot.appendChild(style);
+
+      const container = document.createElement('div');
+      container.id = 'exocortex-container';
+      container.innerHTML = `
+        <div class="ambient-pill" id="exo-pill" title="Click for Page X-Ray">
+          <div class="pill-core" id="exo-core"></div>
+          <span class="pill-label">EXOCORTEX</span>
+          <span class="pill-badge" id="exo-badge" style="display:none;">0</span>
+        </div>
+
+        <div class="insight-card" id="exo-card">
+          <div class="card-header">
+            <span class="card-badge" id="card-badge">COGNITIVE X-RAY</span>
+            <button class="close-btn" id="exo-close" title="Dismiss">✕</button>
+          </div>
+          <div class="card-title" id="card-title">Analyzing page...</div>
+          <div class="card-body" id="card-body"></div>
+          <div class="xray-points" id="xray-points"></div>
+          <div class="snippet-box" id="snippet-box" style="display:none;"></div>
+          <div class="cross-tab-box" id="cross-tab-box" style="display:none;">
+            <div style="font-weight: 700; margin-bottom: 2px;">Cross-Tab Reference:</div>
+            <div class="cross-tab-title" id="cross-tab-title"></div>
+          </div>
+          <div class="card-footer">
+            <span class="dismiss-link" id="exo-dismiss">Close</span>
+            <button class="action-btn" id="exo-action">Got it</button>
+          </div>
+        </div>
+      `;
+
+      shadowRoot.appendChild(container);
+
+      const pill = shadowRoot.getElementById('exo-pill');
+      const card = shadowRoot.getElementById('exo-card');
+      const closeBtn = shadowRoot.getElementById('exo-close');
+      const dismissLink = shadowRoot.getElementById('exo-dismiss');
+      const actionBtn = shadowRoot.getElementById('exo-action');
+
+      pill.addEventListener('click', () => {
+        if (card.classList.contains('visible')) {
+          hideInsightCard();
+        } else {
+          if (activeInsight) {
+            presentInsight(activeInsight);
+          } else {
+            presentPageXRay();
+          }
+        }
+      });
+
+      closeBtn.addEventListener('click', hideInsightCard);
+      dismissLink.addEventListener('click', hideInsightCard);
+      actionBtn.addEventListener('click', hideInsightCard);
+    } catch (e) {
+      console.warn('[Exocortex] HUD injection skipped:', e);
+    }
+  }
+
   function presentPageXRay() {
     if (!shadowRoot || !currentDigest) return;
 
@@ -113,12 +159,10 @@
     cardBadge.className = 'card-badge';
     cardTitle.innerText = currentDigest.title ? currentDigest.title.slice(0, 45) + '...' : 'Current Page';
     
-    // Status text
-    const priceText = currentDigest.prices.length > 0 ? `💰 Price detected: ${currentDigest.prices[0].raw}` : '';
+    const priceText = currentDigest.prices.length > 0 ? ` • Price: ${currentDigest.prices[0].raw}` : '';
     const readTime = Math.max(1, Math.round(currentDigest.wordCount / 200));
-    cardBody.innerText = `Category: ${currentDigest.category.toUpperCase()} • ~${readTime} min read (${currentDigest.wordCount} words). ${priceText}`;
+    cardBody.innerText = `Category: ${currentDigest.category.toUpperCase()} • ~${readTime} min read (${currentDigest.wordCount} words)${priceText}`;
 
-    // Takeaways
     pointsContainer.innerHTML = '';
     const takeaways = currentDigest.keyTakeaways && currentDigest.keyTakeaways.length > 0
       ? currentDigest.keyTakeaways
@@ -131,7 +175,6 @@
       pointsContainer.appendChild(row);
     });
 
-    // Fine print check
     if (currentDigest.finePrintHazards && currentDigest.finePrintHazards.length > 0) {
       snippetBox.style.display = 'block';
       snippetBox.innerText = `⚠️ Notice: "${currentDigest.finePrintHazards[0].snippet}"`;
@@ -141,7 +184,6 @@
 
     crossTabBox.style.display = 'none';
     actionBtn.innerText = 'Got it';
-
     card.classList.add('visible');
   }
 
@@ -199,32 +241,43 @@
   }
 
   function extractAndReportPageDigest() {
-    if (location.protocol.startsWith('chrome') || location.protocol.startsWith('edge')) return;
+    if (!location || !location.protocol) return;
+    if (location.protocol.startsWith('chrome') || location.protocol.startsWith('edge') || location.protocol.startsWith('about')) return;
 
     setTimeout(() => {
       try {
+        if (!chrome.runtime?.id) return; // Context valid check
         currentDigest = distillPage();
         chrome.runtime.sendMessage({
           type: 'PAGE_DIGEST_UPDATED',
           payload: currentDigest
-        });
+        }).catch(() => {});
       } catch (err) {
-        console.warn('[Exocortex] Perception digest error:', err);
+        // Safe catch
       }
-    }, 1000);
+    }, 1200);
   }
 
   function distillPage() {
     const title = document.title || '';
     const url = window.location.href;
 
-    const clone = document.body.cloneNode(true);
-    const removeSelectors = ['script', 'style', 'noscript', 'svg', 'nav', 'footer', 'header', 'iframe', 'exocortex-hud-root'];
-    removeSelectors.forEach(sel => {
-      clone.querySelectorAll(sel).forEach(el => el.remove());
-    });
+    if (!document.body) {
+      return { title, url, category: 'general', prices: [], times: [], wordCount: 0, finePrintHazards: [], keyTakeaways: [], summary: '' };
+    }
 
-    const fullText = (clone.innerText || '').replace(/\s+/g, ' ').trim();
+    let fullText = '';
+    try {
+      const clone = document.body.cloneNode(true);
+      const removeSelectors = ['script', 'style', 'noscript', 'svg', 'nav', 'footer', 'header', 'iframe', 'exocortex-hud-root'];
+      removeSelectors.forEach(sel => {
+        clone.querySelectorAll(sel).forEach(el => el.remove());
+      });
+      fullText = (clone.innerText || '').replace(/\s+/g, ' ').trim();
+    } catch (e) {
+      fullText = (document.body.innerText || '').replace(/\s+/g, ' ').trim();
+    }
+
     const wordCount = fullText.split(/\s+/).filter(w => w.length > 0).length;
 
     // Prices
@@ -274,7 +327,7 @@
       }
     }
 
-    // Key Takeaways Extraction from Headings & Lead Paragraphs
+    // Key Takeaways Extraction
     const keyTakeaways = [];
     const headings = document.querySelectorAll('h1, h2, h3');
     headings.forEach(h => {
@@ -284,7 +337,6 @@
       }
     });
 
-    // If headings are sparse, extract strong sentences
     if (keyTakeaways.length < 3) {
       const paragraphs = document.querySelectorAll('p');
       for (const p of paragraphs) {
