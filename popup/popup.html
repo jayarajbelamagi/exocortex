@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Exocortex Dashboard</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="deck">
+    <!-- Top Header -->
+    <header class="deck-header">
+      <div class="brand">
+        <div class="brand-icon"></div>
+        <div>
+          <h1 class="brand-name">EXOCORTEX</h1>
+          <p class="brand-sub">Cognitive Co-Processor v1.0</p>
+        </div>
+      </div>
+      <div class="status-indicator">
+        <span class="status-dot"></span>
+        <span class="status-text">OBSERVING</span>
+      </div>
+    </header>
+
+    <!-- Nav Tabs -->
+    <nav class="tabs">
+      <button class="tab-btn active" data-tab="stream">Insights & Stream</button>
+      <button class="tab-btn" data-tab="memory">Session Memory</button>
+      <button class="tab-btn" data-tab="settings">Brain Engine</button>
+    </nav>
+
+    <!-- TAB 1: Stream & Insights -->
+    <section class="tab-content active" id="tab-stream">
+      <div class="metrics-row">
+        <div class="metric-card">
+          <span class="metric-val" id="metric-memory">0</span>
+          <span class="metric-label">Tabs Monitored</span>
+        </div>
+        <div class="metric-card">
+          <span class="metric-val" id="metric-insights">0</span>
+          <span class="metric-label">Dot-Connections</span>
+        </div>
+      </div>
+
+      <div class="section-title">
+        <span>Active Insights</span>
+        <button class="link-btn" id="btn-demo-test">⚡ Test Demo Alert</button>
+      </div>
+
+      <div class="insights-feed" id="insights-feed">
+        <div class="empty-state" id="insights-empty">
+          <div class="empty-icon">🧠</div>
+          <p>No critical blindspots or clashes detected yet.</p>
+          <small>Browse sites across multiple tabs or click "Test Demo Alert" above.</small>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 2: Session Memory -->
+    <section class="tab-content" id="tab-memory">
+      <div class="section-title">
+        <span>Memory Ring Buffer</span>
+        <button class="link-btn text-danger" id="btn-clear-mem">Clear Memory</button>
+      </div>
+      <p class="section-desc">Recent tab digests held in local memory for cross-tab synthesis:</p>
+      
+      <div class="memory-list" id="memory-list">
+        <!-- Dynamically populated -->
+      </div>
+    </section>
+
+    <!-- TAB 3: Brain Engine Settings -->
+    <section class="tab-content" id="tab-settings">
+      <div class="form-group">
+        <label class="form-label">Cognitive Engine Mode</label>
+        <select class="form-select" id="engine-mode">
+          <option value="hybrid">Hybrid (Local Heuristics + Deep Gemini AI)</option>
+          <option value="local">Local Only (100% On-Device Heuristics)</option>
+        </select>
+        <span class="form-hint">Local mode uses zero network calls. Hybrid unlocks deep semantic reasoning.</span>
+      </div>
+
+      <div class="form-group" id="gemini-key-group">
+        <label class="form-label">Google Gemini API Key (Optional)</label>
+        <div class="input-with-btn">
+          <input type="password" class="form-input" id="gemini-api-key" placeholder="AIzaSy...">
+          <button class="toggle-btn" id="btn-toggle-key">👁️</button>
+        </div>
+        <span class="form-hint">Used for deep cross-tab synthesis. Stored locally in your browser storage.</span>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Active Proactive Whispers</label>
+        <div class="toggle-row">
+          <span>Show ambient floating HUD when insights appear</span>
+          <input type="checkbox" id="proactive-toggle" checked>
+        </div>
+      </div>
+
+      <button class="primary-btn" id="btn-save-settings">Save Settings</button>
+      <div class="feedback-msg" id="settings-feedback"></div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="deck-footer">
+      <span>Zero cloud telemetry • Sovereign Local Intelligence</span>
+    </footer>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
