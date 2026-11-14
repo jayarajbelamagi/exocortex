@@ -1,12 +1,13 @@
 {
   "manifest_version": 3,
   "name": "Exocortex — Proactive Cognitive Co-Processor",
-  "version": "1.0.1",
-  "description": "An intelligent ambient layer that connects dots across tabs, catches hidden traps, and surfaces proactive insights faster than you notice them.",
+  "version": "1.0.2",
+  "description": "An intelligent ambient layer that connects dots across tabs, catches hidden traps, and executes autonomous web tasks.",
   "permissions": [
     "storage",
     "tabs",
     "activeTab",
+    "scripting",
     "alarms"
   ],
   "host_permissions": [

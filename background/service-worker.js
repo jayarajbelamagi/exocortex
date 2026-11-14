@@ -152,18 +152,25 @@ async function handleCrossTabCommand(commandText) {
  * Dispatcher for WhatsApp Web
  */
 async function dispatchWhatsAppAction(contact, messageText) {
+  // If contact is a phone number (e.g. +919876543210 or 9876543210)
+  const isPhoneNumber = /^\+?[0-9\s-]{7,15}$/.test(contact.trim());
+  const cleanPhone = contact.replace(/[^0-9]/g, '');
+
+  let targetUrl = 'https://web.whatsapp.com/send?text=' + encodeURIComponent(messageText);
+  if (isPhoneNumber && cleanPhone.length >= 7) {
+    targetUrl = `https://web.whatsapp.com/send?phone=${cleanPhone}&text=${encodeURIComponent(messageText)}`;
+  }
+
   // Check if WhatsApp Web tab is already open
   const tabs = await chrome.tabs.query({});
   const existingTab = tabs.find(t => t.url && t.url.includes('web.whatsapp.com'));
 
   if (existingTab && existingTab.id) {
-    // Focus existing tab
     await chrome.tabs.update(existingTab.id, { active: true });
     if (existingTab.windowId) {
       await chrome.windows.update(existingTab.windowId, { focused: true });
     }
 
-    // Send action
     try {
       await chrome.tabs.sendMessage(existingTab.id, {
         type: 'EXECUTE_WHATSAPP_ACTION',
@@ -171,17 +178,15 @@ async function dispatchWhatsAppAction(contact, messageText) {
         messageText
       });
       return { status: 'sent_to_existing_tab', contact, messageText };
-    } catch (e) {
-      // Content script might need a moment
-    }
+    } catch (e) {}
   }
 
-  // If tab not open, stage pending action in storage and create tab
+  // Stage pending action and open tab with WhatsApp deep link
   await chrome.storage.local.set({
     pendingWhatsAppAction: { contact, messageText, timestamp: Date.now() }
   });
 
-  const newTab = await chrome.tabs.create({ url: 'https://web.whatsapp.com' });
+  const newTab = await chrome.tabs.create({ url: targetUrl });
   return { status: 'opened_whatsapp_tab', contact, messageText, tabId: newTab.id };
 }
 

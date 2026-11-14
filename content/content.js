@@ -1,6 +1,6 @@
 /**
  * Exocortex — Content Perception, Ambient HUD & Robust Autonomous Actuator
- * Features visual on-screen step-by-step HUD for WhatsApp Web & web automations.
+ * Uses synthetic ClipboardEvent paste simulation for WhatsApp Lexical editor.
  */
 
 (function () {
@@ -21,8 +21,6 @@
   function init() {
     initAmbientHUD();
     extractAndReportPageDigest();
-
-    // Check for pending automations on page load
     checkPendingAutomations();
   }
 
@@ -47,9 +45,6 @@
     });
   } catch (e) {}
 
-  /**
-   * Check if user queued an action before this tab was opened
-   */
   async function checkPendingAutomations() {
     try {
       if (location.hostname !== 'web.whatsapp.com') return;
@@ -57,10 +52,8 @@
       const storage = await chrome.storage.local.get(['pendingWhatsAppAction']);
       if (storage.pendingWhatsAppAction) {
         const action = storage.pendingWhatsAppAction;
-        // Don't remove immediately so retries work if user has to scan QR code
-        renderWhatsAppProgressHUD(action.contact, action.messageText, '⏳ Waiting for WhatsApp Web to finish decrypting chats...');
+        renderWhatsAppProgressHUD(action.contact, action.messageText, '⏳ Waiting for WhatsApp chats to load...');
         
-        // Wait for chat pane to actually exist (up to 40 seconds)
         pollForWhatsAppReady()
           .then(() => {
             chrome.storage.local.remove(['pendingWhatsAppAction']);
@@ -73,21 +66,17 @@
     } catch (e) {}
   }
 
-  /**
-   * Poll until WhatsApp Web is actually loaded & ready (passed QR code screen)
-   */
-  function pollForWhatsAppReady(timeoutMs = 40000) {
+  function pollForWhatsAppReady(timeoutMs = 45000) {
     return new Promise((resolve, reject) => {
       const start = Date.now();
       const check = () => {
-        // Check if QR code is showing
         const qrCanvas = document.querySelector('canvas[aria-label*="Scan"], div[data-ref]');
         if (qrCanvas) {
-          renderWhatsAppProgressHUD('', '', '📱 Please scan the QR code on your phone to log into WhatsApp Web. Autopilot is waiting...');
+          renderWhatsAppProgressHUD('', '', '📱 Please scan the QR code to log into WhatsApp Web. Autopilot will resume automatically!');
         }
 
         // WhatsApp search input or chat pane indicators
-        const searchInput = document.querySelector('div[contenteditable="true"][data-tab="3"], div[data-testid="chat-list-search"], div[title*="Search"], #side, #pane-side');
+        const searchInput = document.querySelector('#side, #pane-side, div[data-testid="chat-list-search"], div[contenteditable="true"]');
         if (searchInput && !qrCanvas) {
           return resolve();
         }
@@ -103,51 +92,51 @@
   }
 
   /**
-   * Robust WhatsApp Automation Engine with Multi-Layer Selectors & Real-Time Progress HUD
+   * Universal React / Lexical text insertion simulator
+   * Standard insertText fails on Meta's Lexical editor; Clipboard paste succeeds.
    */
+  function simulateTypeIntoLexical(element, text) {
+    element.focus();
+    try {
+      // 1. Try modern clipboard paste event (what Lexical listens to)
+      const dataTransfer = new DataTransfer();
+      dataTransfer.setData('text/plain', text);
+      const pasteEvent = new ClipboardEvent('paste', {
+        clipboardData: dataTransfer,
+        bubbles: true,
+        cancelable: true
+      });
+      element.dispatchEvent(pasteEvent);
+    } catch (e) {}
+
+    // 2. Fallback: inputEvent with insertText
+    try {
+      element.dispatchEvent(new InputEvent('beforeinput', { bubbles: true, inputType: 'insertText', data: text }));
+      document.execCommand('insertText', false, text);
+      element.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: text }));
+    } catch (e) {}
+  }
+
   async function automateWhatsApp(contactName, messageText) {
-    renderWhatsAppProgressHUD(contactName, messageText, `🔍 Step 1/3: Searching for "${contactName}"...`);
+    renderWhatsAppProgressHUD(contactName, messageText, `🔍 Searching for "${contactName}"...`);
 
     try {
-      // 1. Locate Search Box (try all modern WhatsApp Web selectors)
-      const searchBoxSelectors = [
-        'div[data-testid="chat-list-search"]',
-        '#side div[contenteditable="true"]',
-        'div[contenteditable="true"][data-tab="3"]',
-        'div[title*="Search input"]',
-        'p.selectable-text.copyable-text',
-        'div[role="textbox"]'
-      ];
-
-      let searchBox = null;
-      for (const sel of searchBoxSelectors) {
-        const el = document.querySelector(sel);
-        if (el && el.closest('#side, header, div[data-testid="chat-list"]')) {
-          searchBox = el;
-          break;
-        }
+      // 1. Locate Search Box
+      let searchBox = document.querySelector('div[data-testid="chat-list-search"] [contenteditable="true"], #side div[contenteditable="true"], div[title*="Search input"]');
+      if (!searchBox) {
+        searchBox = document.querySelector('#side [contenteditable="true"]');
       }
 
       if (!searchBox) {
-        searchBox = document.querySelector('div[contenteditable="true"]');
+        throw new Error('Search box not found. Ensure WhatsApp Web is logged in.');
       }
 
-      if (!searchBox) {
-        throw new Error('Search box not found. Ensure WhatsApp Web is completely loaded.');
-      }
-
-      // Focus and type contact name
-      searchBox.focus();
-      document.execCommand('selectAll', false, null);
-      document.execCommand('delete', false, null);
-      document.execCommand('insertText', false, contactName);
-      searchBox.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: contactName }));
-
-      renderWhatsAppProgressHUD(contactName, messageText, `⏳ Step 2/3: Finding chat for "${contactName}"...`);
-      await sleep(1800);
+      simulateTypeIntoLexical(searchBox, contactName);
+      renderWhatsAppProgressHUD(contactName, messageText, `⏳ Finding chat for "${contactName}"...`);
+      await sleep(2000);
 
       // 2. Locate Contact in Results
-      const chatRows = document.querySelectorAll('div[role="listitem"], div[data-testid="cell-frame-container"], div[data-testid="list-item"], #pane-side div[tabindex="-1"]');
+      const chatRows = document.querySelectorAll('#pane-side div[role="listitem"], #pane-side div[data-testid="cell-frame-container"]');
       let targetChat = null;
 
       for (const row of chatRows) {
@@ -159,7 +148,7 @@
       }
 
       if (!targetChat && chatRows.length > 0) {
-        targetChat = chatRows[0]; // pick first matching search result
+        targetChat = chatRows[0];
       }
 
       if (targetChat) {
@@ -167,45 +156,30 @@
         targetChat.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
         targetChat.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
       } else {
-        // Fallback: press Enter on search box to open first match
         searchBox.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true }));
       }
 
       await sleep(1500);
 
-      // 3. Locate Message Input in Footer
-      renderWhatsAppProgressHUD(contactName, messageText, `✍️ Step 3/3: Typing "${messageText}" & sending...`);
+      // 3. Locate Message Compose Box in Conversation Pane
+      renderWhatsAppProgressHUD(contactName, messageText, `✍️ Typing "${messageText}"...`);
 
-      const messageBoxSelectors = [
-        'footer div[contenteditable="true"]',
-        'div[data-testid="conversation-compose-box-input"]',
-        'div[title="Type a message"]',
-        'div[data-tab="10"]',
-        '#main footer [contenteditable="true"]',
-        'div[role="textbox"][spellcheck="true"]'
-      ];
+      let messageBox = document.querySelector('footer div[contenteditable="true"], div[data-testid="conversation-compose-box-input"], div[title="Type a message"], #main footer [contenteditable="true"]');
 
-      let messageBox = null;
-      for (const sel of messageBoxSelectors) {
-        const el = document.querySelector(sel);
-        if (el) {
-          messageBox = el;
-          break;
-        }
+      if (!messageBox) {
+        // Retry locating compose box
+        await sleep(1000);
+        messageBox = document.querySelector('#main footer [contenteditable="true"]');
       }
 
       if (!messageBox) {
-        throw new Error('Message box not found in conversation pane.');
+        throw new Error('Conversation compose box not found.');
       }
 
-      messageBox.focus();
-      document.execCommand('selectAll', false, null);
-      document.execCommand('insertText', false, messageText);
-      messageBox.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: messageText }));
+      simulateTypeIntoLexical(messageBox, messageText);
+      await sleep(800);
 
-      await sleep(600);
-
-      // 4. Click Send Button or Dispatch Enter
+      // 4. Click Send Button
       const sendBtn = document.querySelector('button[data-testid="compose-btn-send"], span[data-icon="send"], button[aria-label*="Send" i]');
       if (sendBtn) {
         const btn = sendBtn.closest('button') || sendBtn;
@@ -217,14 +191,11 @@
       renderWhatsAppProgressHUD(contactName, messageText, `✓ SUCCESS: Sent "${messageText}" to ${contactName} on WhatsApp!`, true);
       return { success: true, contact: contactName, message: messageText };
     } catch (err) {
-      renderWhatsAppProgressHUD(contactName, messageText, `⚠️ Autopilot Error: ${err.message}`);
+      renderWhatsAppProgressHUD(contactName, messageText, `⚠️ Autopilot Notice: ${err.message}`);
       throw err;
     }
   }
 
-  /**
-   * Prominent On-Screen Progress HUD for WhatsApp Web
-   */
   function renderWhatsAppProgressHUD(contact, messageText, statusText, isDone = false) {
     let hud = document.getElementById('exocortex-wa-hud');
     if (!hud) {
@@ -235,14 +206,14 @@
         top: 20px;
         left: 50%;
         transform: translateX(-50%);
-        background: linear-gradient(135deg, rgba(15, 23, 42, 0.96) 0%, rgba(30, 41, 59, 0.98) 100%);
+        background: linear-gradient(135deg, rgba(15, 23, 42, 0.98) 0%, rgba(30, 41, 59, 0.98) 100%);
         color: #f8fafc;
         border: 2px solid #38bdf8;
         border-radius: 14px;
         padding: 14px 22px;
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         font-size: 13px;
-        box-shadow: 0 16px 48px rgba(0,0,0,0.8), 0 0 20px rgba(56, 189, 248, 0.4);
+        box-shadow: 0 16px 48px rgba(0,0,0,0.85), 0 0 20px rgba(56, 189, 248, 0.4);
         z-index: 2147483647;
         display: flex;
         flex-direction: column;
@@ -268,9 +239,7 @@
     if (closeBtn) closeBtn.onclick = () => hud.remove();
 
     if (isDone) {
-      setTimeout(() => {
-        if (hud) hud.remove();
-      }, 7000);
+      setTimeout(() => { if (hud) hud.remove(); }, 7000);
     }
   }
 
@@ -279,7 +248,7 @@
   }
 
   /**
-   * In-Page Autonomous Actuators (CSV, Traps, Cookies, Autofill)
+   * In-Page Autonomous Actuators
    */
   async function runAutonomousTask(taskType, params = {}) {
     showAutopilotBanner(`🤖 Autopilot: Executing "${taskType}"...`);
@@ -365,7 +334,7 @@
     }
 
     if (targets.length === 0) {
-      showAutopilotBanner('✓ Autopilot Scan: No hidden traps or cancellation penalties found.');
+      showAutopilotBanner('✓ Autopilot Scan: No hidden traps found.');
       return { found: 0 };
     }
 
