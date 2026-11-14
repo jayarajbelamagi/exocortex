@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Exocortex — The Proactive Cognitive Co-Processor</title>
+  <meta name="description" content="An ambient intelligence that connects dots across tabs, catches hidden traps, and surfaces proactive insights faster than you notice them.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #090d16;
+      --card-bg: rgba(17, 24, 39, 0.7);
+      --border: rgba(255, 255, 255, 0.08);
+      --accent-cyan: #38bdf8;
+      --accent-indigo: #6366f1;
+      --accent-rose: #f43f5e;
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+    /* Glow Effects */
+    .glow-bg {
+      position: absolute;
+      top: -120px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 900px;
+      height: 480px;
+      background: radial-gradient(circle, rgba(99, 102, 241, 0.22) 0%, rgba(56, 189, 248, 0.12) 40%, transparent 70%);
+      filter: blur(80px);
+      z-index: 0;
+      pointer-events: none;
+    }
+    nav {
+      position: relative;
+      z-index: 10;
+      max-width: 1160px;
+      margin: 0 auto;
+      padding: 24px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-weight: 800;
+      font-size: 18px;
+      letter-spacing: 1.2px;
+    }
+    .logo-core {
+      width: 24px;
+      height: 24px;
+      border-radius: 6px;
+      background: linear-gradient(135deg, var(--accent-cyan), var(--accent-indigo));
+      box-shadow: 0 0 12px rgba(56, 189, 248, 0.6);
+    }
+    .nav-links a {
+      color: var(--text-muted);
+      text-decoration: none;
+      font-size: 14px;
+      font-weight: 600;
+      margin-left: 28px;
+      transition: color 0.2s;
+    }
+    .nav-links a:hover { color: #fff; }
+    .nav-btn {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid var(--border);
+      color: #fff !important;
+      padding: 8px 18px;
+      border-radius: 999px;
+      backdrop-filter: blur(10px);
+    }
+
+    /* Hero Section */
+    .hero {
+      position: relative;
+      z-index: 10;
+      max-width: 920px;
+      margin: 60px auto 40px;
+      text-align: center;
+      padding: 0 20px;
+    }
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.8px;
+      padding: 6px 14px;
+      border-radius: 9999px;
+      background: rgba(99, 102, 241, 0.12);
+      border: 1px solid rgba(99, 102, 241, 0.35);
+      color: #a5b4fc;
+      margin-bottom: 24px;
+    }
+    .hero h1 {
+      font-size: clamp(38px, 6vw, 64px);
+      font-weight: 800;
+      line-height: 1.15;
+      letter-spacing: -1.5px;
+      margin-bottom: 22px;
+      background: linear-gradient(180deg, #ffffff 40%, #94a3b8 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .hero p {
+      font-size: clamp(16px, 2vw, 20px);
+      color: var(--text-muted);
+      max-width: 720px;
+      margin: 0 auto 36px;
+      line-height: 1.6;
+    }
+    .cta-group {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+    .primary-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      background: linear-gradient(135deg, #4f46e5 0%, #0284c7 100%);
+      color: #fff;
+      font-weight: 700;
+      font-size: 15px;
+      padding: 14px 28px;
+      border-radius: 12px;
+      text-decoration: none;
+      box-shadow: 0 10px 30px rgba(79, 70, 229, 0.4);
+      transition: all 0.25s ease;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+    .primary-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 16px 40px rgba(79, 70, 229, 0.55);
+    }
+    .secondary-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border);
+      color: #cbd5e1;
+      font-weight: 600;
+      font-size: 15px;
+      padding: 14px 26px;
+      border-radius: 12px;
+      text-decoration: none;
+      transition: all 0.2s;
+    }
+    .secondary-btn:hover {
+      background: rgba(255, 255, 255, 0.1);
+      color: #fff;
+    }
+
+    /* Interactive Demo Card */
+    .demo-wrapper {
+      max-width: 980px;
+      margin: 50px auto 80px;
+      padding: 0 20px;
+      position: relative;
+      z-index: 10;
+    }
+    .browser-frame {
+      background: #111827;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 16px;
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6);
+      overflow: hidden;
+    }
+    .browser-bar {
+      background: #0f172a;
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    }
+    .browser-dots {
+      display: flex;
+      gap: 6px;
+    }
+    .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #334155;
+    }
+    .browser-url {
+      flex: 1;
+      background: #1e293b;
+      padding: 6px 14px;
+      border-radius: 8px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      color: #94a3b8;
+    }
+    .browser-content {
+      padding: 40px;
+      min-height: 340px;
+      position: relative;
+      background: linear-gradient(180deg, #0b1120 0%, #0f172a 100%);
+    }
+    .simulated-page-title {
+      font-size: 20px;
+      font-weight: 700;
+      margin-bottom: 12px;
+      color: #e2e8f0;
+    }
+    .simulated-page-text {
+      color: #64748b;
+      font-size: 14px;
+      max-width: 500px;
+      line-height: 1.7;
+    }
+
+    /* In-Demo Floating Whisper */
+    .demo-whisper {
+      position: absolute;
+      top: 30px;
+      right: 30px;
+      width: 320px;
+      background: rgba(15, 23, 42, 0.95);
+      border: 1px solid rgba(244, 63, 94, 0.5);
+      border-top: 2px solid #f43f5e;
+      border-radius: 14px;
+      padding: 16px;
+      box-shadow: 0 16px 40px rgba(0,0,0,0.7), 0 0 20px rgba(244, 63, 94, 0.25);
+      animation: float-in 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .whisper-badge {
+      display: inline-block;
+      font-size: 10px;
+      font-weight: 800;
+      color: #fb7185;
+      background: rgba(244, 63, 94, 0.15);
+      padding: 3px 8px;
+      border-radius: 6px;
+      margin-bottom: 8px;
+    }
+    .whisper-title {
+      font-size: 13.5px;
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 6px;
+    }
+    .whisper-body {
+      font-size: 12px;
+      color: #cbd5e1;
+      line-height: 1.5;
+    }
+
+    /* Pillars / Features */
+    .features-grid {
+      max-width: 1160px;
+      margin: 80px auto;
+      padding: 0 20px;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 24px;
+    }
+    .feature-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 32px 28px;
+      backdrop-filter: blur(12px);
+      transition: border-color 0.25s, transform 0.25s;
+    }
+    .feature-card:hover {
+      border-color: rgba(99, 102, 241, 0.4);
+      transform: translateY(-4px);
+    }
+    .feature-icon {
+      font-size: 28px;
+      margin-bottom: 16px;
+      display: inline-block;
+    }
+    .feature-title {
+      font-size: 18px;
+      font-weight: 700;
+      margin-bottom: 10px;
+      color: #fff;
+    }
+    .feature-desc {
+      font-size: 14px;
+      color: var(--text-muted);
+      line-height: 1.6;
+    }
+
+    footer {
+      max-width: 1160px;
+      margin: 80px auto 40px;
+      padding: 24px 20px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      color: #64748b;
+      font-size: 13px;
+    }
+    footer a { color: #94a3b8; text-decoration: none; }
+    footer a:hover { color: #fff; }
+
+    @keyframes float-in {
+      from { opacity: 0; transform: translateY(-12px) scale(0.95); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+  </style>
+</head>
+<body>
+  <div class="glow-bg"></div>
+
+  <nav>
+    <div class="logo">
+      <div class="logo-core"></div>
+      <span>EXOCORTEX</span>
+    </div>
+    <div class="nav-links">
+      <a href="#features">Features</a>
+      <a href="https://github.com/jayarajbelamagi/exocortex" target="_blank">GitHub</a>
+      <a href="exocortex-extension.zip" download="exocortex-extension.zip" class="nav-btn">Download Extension</a>
+    </div>
+  </nav>
+
+  <header class="hero">
+    <div class="hero-badge">⚡ THE EXOCORTEX MANIFESTO</div>
+    <h1>The First Real-Time Cognitive Co-Processor</h1>
+    <p>
+      An intelligent ambient layer for your browser. It remembers across tabs, catches hidden traps in contracts and pricing, and whispers razor-sharp insights before you make a mistake.
+    </p>
+    <div class="cta-group">
+      <a href="exocortex-extension.zip" download="exocortex-extension.zip" class="primary-btn">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Download Extension (.ZIP)
+      </a>
+      <a href="https://github.com/jayarajbelamagi/exocortex" target="_blank" class="secondary-btn">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>
+        Star on GitHub
+      </a>
+    </div>
+  </header>
+
+  <main>
+    <!-- Interactive Live Demo Simulation -->
+    <section class="demo-wrapper">
+      <div class="browser-frame">
+        <div class="browser-bar">
+          <div class="browser-dots">
+            <div class="dot" style="background:#ef4444;"></div>
+            <div class="dot" style="background:#f59e0b;"></div>
+            <div class="dot" style="background:#10b981;"></div>
+          </div>
+          <div class="browser-url">https://boutique-hotel.com/checkout/booking-deluxe</div>
+        </div>
+        <div class="browser-content">
+          <div class="simulated-page-title">🏨 Grand Heritage Hotel — Room Checkout</div>
+          <div class="simulated-page-text">
+            Check-in time strictly 14:00 – 22:00 PM. No night reception staff.<br>
+            Total Due: $280 (Non-refundable deposit).
+          </div>
+
+          <!-- Ambient Whisper Overlay -->
+          <div class="demo-whisper">
+            <div class="whisper-badge">SCHEDULE CONFLICT DETECTED</div>
+            <div class="whisper-title">Flight Lands After Check-In Closes</div>
+            <div class="whisper-body">
+              Your flight in Tab 1 lands at <strong>22:45 PM</strong>, but this front desk strictly locks at <strong>22:00 PM</strong> with zero refund for late arrivals.
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Features -->
+    <section class="features-grid" id="features">
+      <div class="feature-card">
+        <div class="feature-icon">🧠</div>
+        <h3 class="feature-title">Cross-Tab Memory</h3>
+        <p class="feature-desc">Unlike traditional assistants that treat each tab as a vacuum, Exocortex maintains a real-time semantic ring buffer across your entire browsing session.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">🛡️</div>
+        <h3 class="feature-title">Fine-Print Radar</h3>
+        <p class="feature-desc">Scans checkouts, SaaS pricing, and legal terms for sneaky clauses—like recurring auto-renewals, non-refundable terms, and restocking penalties.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">🔒</div>
+        <h3 class="feature-title">Sovereign & Local-First</h3>
+        <p class="feature-desc">Zero cloud telemetry. Your session data lives in your browser's local memory and is wiped at any time. It works for you, not advertising networks.</p>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div>Exocortex • Created with ambition</div>
+    <div><a href="https://github.com/jayarajbelamagi/exocortex" target="_blank">GitHub Repository</a></div>
+  </footer>
+</body>
+</html>
