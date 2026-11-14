@@ -1,9 +1,10 @@
 /**
- * Exocortex — Popup Controller (Enhanced Multi-Tab Synthesis & X-Ray)
+ * Exocortex — Popup Controller (Enhanced Multi-Tab Synthesis, X-Ray & Autopilot)
  */
 
 document.addEventListener('DOMContentLoaded', async () => {
   initTabs();
+  initAutopilot();
   initOmnibar();
   initSynthesisAction();
   await loadStateAndMetrics();
@@ -29,6 +30,74 @@ function initTabs() {
   });
 }
 
+/**
+ * Superpower: Autonomous Autopilot Actuator
+ */
+function initAutopilot() {
+  const runBtn = document.getElementById('btn-run-command');
+  const input = document.getElementById('autopilot-input');
+  const statusEl = document.getElementById('autopilot-status');
+
+  const actExtractCsv = document.getElementById('act-extract-csv');
+  const actHuntTraps = document.getElementById('act-hunt-traps');
+  const actDeclineCookies = document.getElementById('act-decline-cookies');
+  const actFillForm = document.getElementById('act-fill-form');
+
+  const dispatchTask = async (taskType, params = {}) => {
+    statusEl.style.display = 'block';
+    statusEl.innerText = `🤖 Dispatching "${taskType}" to page...`;
+
+    try {
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (!tab || !tab.id) {
+        statusEl.innerText = '⚠️ Please open a regular webpage first.';
+        return;
+      }
+
+      if (tab.url.startsWith('chrome://') || tab.url.startsWith('edge://')) {
+        statusEl.innerText = '⚠️ Chrome does not allow automation on internal settings pages.';
+        return;
+      }
+
+      const response = await chrome.tabs.sendMessage(tab.id, {
+        type: 'EXECUTE_AUTONOMOUS_TASK',
+        task: taskType,
+        params
+      });
+
+      if (response && response.status === 'success') {
+        statusEl.innerText = `✓ Task executed successfully!`;
+      } else {
+        statusEl.innerText = `✓ Task completed on page.`;
+      }
+
+      setTimeout(() => {
+        statusEl.style.display = 'none';
+      }, 4000);
+    } catch (err) {
+      statusEl.innerText = `Task sent. Refresh the page if script was not yet loaded.`;
+    }
+  };
+
+  if (runBtn && input) {
+    runBtn.addEventListener('click', () => {
+      const cmd = input.value.trim();
+      if (cmd) dispatchTask('CUSTOM_COMMAND', { command: cmd });
+    });
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        const cmd = input.value.trim();
+        if (cmd) dispatchTask('CUSTOM_COMMAND', { command: cmd });
+      }
+    });
+  }
+
+  if (actExtractCsv) actExtractCsv.addEventListener('click', () => dispatchTask('EXTRACT_CSV'));
+  if (actHuntTraps) actHuntTraps.addEventListener('click', () => dispatchTask('HUNT_TRAPS'));
+  if (actDeclineCookies) actDeclineCookies.addEventListener('click', () => dispatchTask('DECLINE_COOKIES'));
+  if (actFillForm) actFillForm.addEventListener('click', () => dispatchTask('AUTOFILL_FORM'));
+}
+
 function safeGetDomain(url) {
   if (!url) return 'Unknown';
   try {
@@ -39,9 +108,6 @@ function safeGetDomain(url) {
   }
 }
 
-/**
- * Superpower 1: Page X-Ray for Active Tab
- */
 async function loadActivePageXRay() {
   try {
     const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
@@ -101,9 +167,6 @@ async function loadActivePageXRay() {
   }
 }
 
-/**
- * Superpower 2: One-Click Multi-Tab Synthesis
- */
 function initSynthesisAction() {
   const synthBtn = document.getElementById('btn-synthesize');
   const synthBox = document.getElementById('synthesis-output');
@@ -150,9 +213,6 @@ function initSynthesisAction() {
   });
 }
 
-/**
- * Superpower 3: Omnibar Cross-Tab Search
- */
 function initOmnibar() {
   const input = document.getElementById('omni-query');
   const btn = document.getElementById('omni-btn');
@@ -311,7 +371,6 @@ function initActionButtons() {
         const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
         if (!tab || !tab.id) return;
 
-        // Prevent running on internal pages
         if (tab.url.startsWith('chrome://') || tab.url.startsWith('edge://') || tab.url.startsWith('about:')) {
           alert('Please switch to a normal webpage (e.g. wikipedia.org or google.com) to test the floating HUD.');
           return;

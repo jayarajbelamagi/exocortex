@@ -13,7 +13,7 @@
         <div class="brand-icon"></div>
         <div>
           <h1 class="brand-name">EXOCORTEX</h1>
-          <p class="brand-sub">Cognitive Co-Processor</p>
+          <p class="brand-sub">Cognitive Co-Processor & Autopilot</p>
         </div>
       </div>
       <div class="status-indicator">
@@ -31,15 +31,67 @@
 
     <!-- Nav Tabs -->
     <nav class="tabs">
-      <button class="tab-btn active" data-tab="synthesis">⚡ Synthesis</button>
+      <button class="tab-btn active" data-tab="autopilot">🤖 Autopilot</button>
+      <button class="tab-btn" data-tab="synthesis">⚡ Synthesis</button>
       <button class="tab-btn" data-tab="xray">Page X-Ray</button>
-      <button class="tab-btn" data-tab="memory">Session Memory</button>
+      <button class="tab-btn" data-tab="memory">Memory</button>
       <button class="tab-btn" data-tab="settings">Brain</button>
     </nav>
 
-    <!-- TAB 1: Multi-Tab Synthesis & Radar -->
-    <section class="tab-content active" id="tab-synthesis">
-      <!-- One-Click Multi-Tab Synthesis Button -->
+    <!-- TAB 1: Autonomous Autopilot (Execute Work On Its Own!) -->
+    <section class="tab-content active" id="tab-autopilot">
+      <div class="autopilot-box">
+        <div class="autopilot-title">Autonomous Web Task Agent</div>
+        <p class="autopilot-desc">Tell Exocortex what to do, and it executes on the page autonomously.</p>
+
+        <div class="command-bar">
+          <input type="text" id="autopilot-input" placeholder="Type a task: e.g. 'Extract all prices to CSV', 'Scroll to bottom'...">
+          <button id="btn-run-command" class="glow-btn">Run Task</button>
+        </div>
+        <div id="autopilot-status" class="autopilot-status" style="display:none;"></div>
+      </div>
+
+      <div class="section-title">
+        <span>1-Click Autonomous Actions</span>
+      </div>
+
+      <div class="action-grid">
+        <div class="actuator-card" id="act-extract-csv">
+          <div class="actuator-icon">📊</div>
+          <div class="actuator-text">
+            <strong>Extract Data to CSV</strong>
+            <span>Scrapes all prices & tables, auto-downloads spreadsheet</span>
+          </div>
+        </div>
+
+        <div class="actuator-card" id="act-hunt-traps">
+          <div class="actuator-icon">🎯</div>
+          <div class="actuator-text">
+            <strong>Hunt & Highlight Traps</strong>
+            <span>Crawls page, scrolls to fine print & highlights in red</span>
+          </div>
+        </div>
+
+        <div class="actuator-card" id="act-decline-cookies">
+          <div class="actuator-icon">🛡️</div>
+          <div class="actuator-text">
+            <strong>Auto-Decline Cookie Banners</strong>
+            <span>Hunts down GDPR modals and clicks Reject/Close</span>
+          </div>
+        </div>
+
+        <div class="actuator-card" id="act-fill-form">
+          <div class="actuator-icon">✍️</div>
+          <div class="actuator-text">
+            <strong>Smart Form Auto-Filler</strong>
+            <span>Types name, email & address into input fields</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 2: Multi-Tab Synthesis & Radar -->
+    <section class="tab-content" id="tab-synthesis">
       <div class="action-card">
         <div class="action-card-header">
           <div>
@@ -68,7 +120,7 @@
       </div>
     </section>
 
-    <!-- TAB 2: Page X-Ray (Current Tab Instant Breakdown) -->
+    <!-- TAB 3: Page X-Ray (Current Tab Instant Breakdown) -->
     <section class="tab-content" id="tab-xray">
       <div class="xray-card" id="current-page-xray">
         <div class="xray-header">
@@ -80,9 +132,7 @@
 
         <div class="xray-section">
           <strong>💡 Key Takeaways (TL;DR):</strong>
-          <div class="takeaways-list" id="xray-takeaways">
-            <!-- Dynamically populated -->
-          </div>
+          <div class="takeaways-list" id="xray-takeaways"></div>
         </div>
 
         <div class="xray-section" id="xray-traps-section" style="display:none;">
@@ -92,7 +142,7 @@
       </div>
     </section>
 
-    <!-- TAB 3: Session Memory -->
+    <!-- TAB 4: Session Memory -->
     <section class="tab-content" id="tab-memory">
       <div class="section-title">
         <span>Session Ring Buffer (<span id="metric-memory">0</span>)</span>
@@ -101,7 +151,7 @@
       <div class="memory-list" id="memory-list"></div>
     </section>
 
-    <!-- TAB 4: Brain Engine Settings -->
+    <!-- TAB 5: Brain Engine Settings -->
     <section class="tab-content" id="tab-settings">
       <div class="form-group">
         <label class="form-label">Reasoning Engine</label>
@@ -132,7 +182,7 @@
     </section>
 
     <footer class="deck-footer">
-      <span>Exocortex • Sovereign Real-Time Intelligence</span>
+      <span>Exocortex • Autonomous Agentic Co-Processor</span>
     </footer>
   </div>
 

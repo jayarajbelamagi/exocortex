@@ -1,6 +1,6 @@
 /**
- * Exocortex — Content Perception & Ambient HUD
- * Injected into web pages. Uses Shadow DOM for total style isolation.
+ * Exocortex — Content Perception, Ambient HUD & Autonomous Actuator
+ * Capable of autonomous DOM execution, scraping, and form manipulation.
  */
 
 (function () {
@@ -12,7 +12,6 @@
   let currentDigest = null;
   let autoHideTimer = null;
 
-  // Safe startup when DOM is ready
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);
   } else {
@@ -24,17 +23,302 @@
     extractAndReportPageDigest();
   }
 
-  // Safe message listener
+  // Listen for Background & Popup Commands (Autonomous Execution)
   try {
     chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       if (message.type === 'EXOCORTEX_WHISPER') {
         presentInsight(message.payload);
         sendResponse({ status: 'displayed' });
+      } else if (message.type === 'EXECUTE_AUTONOMOUS_TASK') {
+        runAutonomousTask(message.task, message.params)
+          .then(result => sendResponse({ status: 'success', result }))
+          .catch(err => sendResponse({ status: 'error', error: err.message }));
+        return true; // async
       }
       return true;
     });
-  } catch (e) {
-    // Context invalidated, ignore
+  } catch (e) {}
+
+  /**
+   * AUTONOMOUS ACTUATOR ENGINE
+   * Executes physical work on the webpage autonomously
+   */
+  async function runAutonomousTask(taskType, params = {}) {
+    showAutopilotBanner(`🤖 Autopilot: Executing "${taskType}"...`);
+
+    switch (taskType) {
+      case 'EXTRACT_CSV':
+        return await executeExtractToCSV();
+
+      case 'HUNT_TRAPS':
+        return await executeHuntAndHighlightTraps();
+
+      case 'DECLINE_COOKIES':
+        return await executeDismissCookieBanners();
+
+      case 'AUTOFILL_FORM':
+        return await executeAutoFillForm(params);
+
+      case 'CUSTOM_COMMAND':
+        return await executeCustomNaturalCommand(params.command);
+
+      default:
+        throw new Error(`Unknown task type: ${taskType}`);
+    }
+  }
+
+  /**
+   * Task 1: Autonomously extract table/card items and trigger CSV download
+   */
+  async function executeExtractToCSV() {
+    const rows = [];
+    rows.push(['Item / Title', 'Extracted Price / Value', 'Context']);
+
+    // 1. Scan HTML tables
+    const tableRows = document.querySelectorAll('table tr');
+    tableRows.forEach(tr => {
+      const cols = Array.from(tr.querySelectorAll('td, th')).map(c => (c.innerText || '').replace(/[\r\n,]/g, ' ').trim());
+      if (cols.length >= 2) rows.push(cols);
+    });
+
+    // 2. Scan card listings or headings with adjacent prices
+    if (rows.length <= 1) {
+      const elements = document.querySelectorAll('h1, h2, h3, h4, p, div');
+      const priceRegex = /(?:[\$\€\£\₹]|USD|EUR|GBP|INR)\s?(\d{1,3}(?:,\d{3})*(?:\.\d{1,2})?)/i;
+      
+      elements.forEach(el => {
+        const text = (el.innerText || '').trim();
+        const match = text.match(priceRegex);
+        if (match && text.length > 5 && text.length < 140) {
+          const title = text.replace(match[0], '').trim() || 'Detected Item';
+          rows.push([title.replace(/[\r\n,]/g, ' '), match[0], location.hostname]);
+        }
+      });
+    }
+
+    if (rows.length <= 1) {
+      showAutopilotBanner('⚠️ No structured data or prices found to extract.');
+      return { count: 0 };
+    }
+
+    // Deduplicate
+    const uniqueCsvRows = Array.from(new Set(rows.map(r => r.join(','))));
+    const csvContent = 'data:text/csv;charset=utf-8,' + uniqueCsvRows.join('\n');
+    const encodedUri = encodeURI(csvContent);
+
+    // Auto-trigger download
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', `exocortex-extract-${location.hostname}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+
+    showAutopilotBanner(`✓ Autopilot Done: Extracted ${uniqueCsvRows.length - 1} items to CSV!`);
+    return { count: uniqueCsvRows.length - 1, filename: `exocortex-extract-${location.hostname}.csv` };
+  }
+
+  /**
+   * Task 2: Autonomously hunt for sneaky fine-print, scroll to it, and highlight
+   */
+  async function executeHuntAndHighlightTraps() {
+    const hazardRegex = /(?:non-refundable|no refunds?|automatically renews?|auto-renew|cancellation fee|restocking fee|mandatory arbitration|binding arbitration)/gi;
+    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null, false);
+    let node;
+    let foundCount = 0;
+    const targets = [];
+
+    while ((node = walker.nextNode())) {
+      if (node.parentElement && !['SCRIPT', 'STYLE', 'EXOCORTEX-HUD-ROOT'].includes(node.parentElement.tagName)) {
+        if (hazardRegex.test(node.textContent)) {
+          targets.push(node.parentElement);
+        }
+      }
+    }
+
+    if (targets.length === 0) {
+      showAutopilotBanner('✓ Autopilot Scan: No hidden traps or cancellation penalties found.');
+      return { found: 0 };
+    }
+
+    // Highlight and scroll to first target
+    targets.forEach(el => {
+      foundCount++;
+      el.style.backgroundColor = 'rgba(244, 63, 94, 0.35)';
+      el.style.outline = '2px dashed #f43f5e';
+      el.style.borderRadius = '4px';
+      el.style.transition = 'all 0.5s ease';
+    });
+
+    targets[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
+    showAutopilotBanner(`⚠️ Autopilot Found ${foundCount} traps! Scrolled & highlighted in red.`);
+    return { found: foundCount };
+  }
+
+  /**
+   * Task 3: Autonomously find and dismiss cookie banners / GDPR popups
+   */
+  async function executeDismissCookieBanners() {
+    const rejectButtons = [];
+    const buttons = document.querySelectorAll('button, a, input[type="button"], div[role="button"]');
+    const rejectKeywords = ['reject all', 'decline all', 'only necessary', 'strictly necessary', 'decline', 'reject', 'close', 'accept necessary'];
+
+    buttons.forEach(btn => {
+      const text = (btn.innerText || btn.getAttribute('aria-label') || '').toLowerCase().trim();
+      if (rejectKeywords.some(kw => text.includes(kw)) && text.length < 40) {
+        rejectButtons.push(btn);
+      }
+    });
+
+    if (rejectButtons.length > 0) {
+      // Click the best match
+      rejectButtons[0].click();
+      showAutopilotBanner('✓ Autopilot Done: Dismissed cookie banner.');
+      return { dismissed: true };
+    }
+
+    // Fallback: look for generic close icons (X) inside modals
+    const closeButtons = document.querySelectorAll('[aria-label*="close" i], [title*="close" i], .close-btn, .modal-close');
+    if (closeButtons.length > 0) {
+      closeButtons[0].click();
+      showAutopilotBanner('✓ Autopilot Done: Closed active overlay/banner.');
+      return { dismissed: true };
+    }
+
+    showAutopilotBanner('✓ Autopilot: No active cookie banner detected.');
+    return { dismissed: false };
+  }
+
+  /**
+   * Task 4: Autonomously auto-fill form fields
+   */
+  async function executeAutoFillForm(customProfile = {}) {
+    const profile = Object.assign({
+      name: 'Alex Mercer',
+      email: 'alex.mercer.test@gmail.com',
+      phone: '+1 (555) 234-5678',
+      address: '742 Evergreen Terrace',
+      city: 'Springfield',
+      zip: '97477',
+      company: 'Exocortex Labs'
+    }, customProfile);
+
+    let filledCount = 0;
+    const inputs = document.querySelectorAll('input:not([type="hidden"]):not([type="submit"]):not([type="checkbox"]):not([type="radio"]), textarea');
+
+    inputs.forEach(input => {
+      const name = (input.name || input.id || input.placeholder || input.getAttribute('aria-label') || '').toLowerCase();
+      let valueToSet = null;
+
+      if (name.includes('mail')) valueToSet = profile.email;
+      else if (name.includes('phone') || name.includes('tel')) valueToSet = profile.phone;
+      else if (name.includes('first') || name.includes('fname')) valueToSet = profile.name.split(' ')[0];
+      else if (name.includes('last') || name.includes('lname')) valueToSet = profile.name.split(' ')[1] || 'Mercer';
+      else if (name.includes('name')) valueToSet = profile.name;
+      else if (name.includes('addr')) valueToSet = profile.address;
+      else if (name.includes('city')) valueToSet = profile.city;
+      else if (name.includes('zip') || name.includes('postal')) valueToSet = profile.zip;
+      else if (name.includes('comp') || name.includes('org')) valueToSet = profile.company;
+
+      if (valueToSet && !input.value) {
+        input.focus();
+        input.value = valueToSet;
+        // Trigger realistic events
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        input.dispatchEvent(new Event('change', { bubbles: true }));
+        input.style.border = '2px solid #10b981';
+        filledCount++;
+      }
+    });
+
+    showAutopilotBanner(`✓ Autopilot Done: Filled ${filledCount} form fields with profile.`);
+    return { filled: filledCount };
+  }
+
+  /**
+   * Task 5: Natural Language Web Commands (e.g. scroll, highlight, search)
+   */
+  async function executeCustomNaturalCommand(cmd) {
+    if (!cmd) return;
+    const lower = cmd.toLowerCase().trim();
+
+    if (lower.includes('scroll to bottom')) {
+      window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+      showAutopilotBanner('✓ Autopilot: Scrolled to page bottom.');
+    } else if (lower.includes('scroll to top')) {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      showAutopilotBanner('✓ Autopilot: Scrolled to page top.');
+    } else if (lower.includes('csv') || lower.includes('extract') || lower.includes('download')) {
+      return await executeExtractToCSV();
+    } else if (lower.includes('trap') || lower.includes('fine print') || lower.includes('terms')) {
+      return await executeHuntAndHighlightTraps();
+    } else if (lower.includes('cookie') || lower.includes('banner')) {
+      return await executeDismissCookieBanners();
+    } else if (lower.includes('fill') || lower.includes('form')) {
+      return await executeAutoFillForm();
+    } else {
+      // General Keyword Highlighter
+      const words = lower.replace(/highlight|find|search for/g, '').trim().split(/\s+/);
+      const targetWord = words[0];
+      if (targetWord && targetWord.length > 2) {
+        const regex = new RegExp(targetWord, 'gi');
+        let matches = 0;
+        const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null, false);
+        let node;
+        const elements = [];
+        while ((node = walker.nextNode())) {
+          if (node.parentElement && !['SCRIPT', 'STYLE', 'EXOCORTEX-HUD-ROOT'].includes(node.parentElement.tagName)) {
+            if (regex.test(node.textContent)) elements.push(node.parentElement);
+          }
+        }
+        elements.forEach(el => {
+          matches++;
+          el.style.backgroundColor = 'rgba(250, 204, 21, 0.4)';
+          el.style.outline = '1px solid #eab308';
+        });
+        if (elements.length > 0) elements[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
+        showAutopilotBanner(`✓ Autopilot Found & Highlighted ${matches} occurrences of "${targetWord}".`);
+      } else {
+        showAutopilotBanner(`✓ Autopilot executed: "${cmd}"`);
+      }
+    }
+    return { command: cmd };
+  }
+
+  function showAutopilotBanner(text) {
+    if (!shadowRoot) return;
+    let banner = shadowRoot.getElementById('autopilot-live-banner');
+    if (!banner) {
+      banner = document.createElement('div');
+      banner.id = 'autopilot-live-banner';
+      banner.style.cssText = `
+        position: fixed;
+        bottom: 24px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(15, 23, 42, 0.95);
+        color: #f8fafc;
+        border: 1px solid #38bdf8;
+        border-radius: 9999px;
+        padding: 10px 24px;
+        font-size: 13px;
+        font-weight: 700;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.6), 0 0 15px rgba(56, 189, 248, 0.3);
+        z-index: 2147483647;
+        pointer-events: auto;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        transition: all 0.3s ease;
+      `;
+      shadowRoot.appendChild(banner);
+    }
+    banner.innerText = text;
+    banner.style.opacity = '1';
+
+    setTimeout(() => {
+      if (banner) banner.style.opacity = '0';
+    }, 4500);
   }
 
   function initAmbientHUD() {
@@ -51,7 +335,6 @@
 
       shadowRoot = host.attachShadow({ mode: 'open' });
 
-      // Embed CSS directly to avoid CSP network fetch errors
       const style = document.createElement('style');
       style.textContent = `
         :host { all: initial; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color-scheme: dark; }
@@ -138,9 +421,7 @@
       closeBtn.addEventListener('click', hideInsightCard);
       dismissLink.addEventListener('click', hideInsightCard);
       actionBtn.addEventListener('click', hideInsightCard);
-    } catch (e) {
-      console.warn('[Exocortex] HUD injection skipped:', e);
-    }
+    } catch (e) {}
   }
 
   function presentPageXRay() {
@@ -246,15 +527,13 @@
 
     setTimeout(() => {
       try {
-        if (!chrome.runtime?.id) return; // Context valid check
+        if (!chrome.runtime?.id) return;
         currentDigest = distillPage();
         chrome.runtime.sendMessage({
           type: 'PAGE_DIGEST_UPDATED',
           payload: currentDigest
         }).catch(() => {});
-      } catch (err) {
-        // Safe catch
-      }
+      } catch (err) {}
     }, 1200);
   }
 
@@ -280,7 +559,6 @@
 
     const wordCount = fullText.split(/\s+/).filter(w => w.length > 0).length;
 
-    // Prices
     const prices = [];
     const priceRegex = /(?:[\$\€\£\₹]|USD|EUR|GBP|INR)\s?(\d{1,3}(?:,\d{3})*(?:\.\d{1,2})?)/gi;
     let priceMatch;
@@ -294,7 +572,6 @@
       }
     }
 
-    // Times & Dates
     const times = [];
     const timeRegex = /\b(?:(?:1[0-2]|0?[1-9]):[0-5][0-9]\s*(?:AM|PM|am|pm)|(?:[01]?[0-9]|2[0-3]):[0-5][0-9])\b/g;
     let timeMatch;
@@ -304,7 +581,6 @@
       timeCount++;
     }
 
-    // Fine-Print Hazards
     const finePrintHazards = [];
     const hazardPatterns = [
       { regex: /non-refundable|no refunds?|strictly non-refundable/i, desc: 'Non-refundable policy applies.' },
@@ -327,7 +603,6 @@
       }
     }
 
-    // Key Takeaways Extraction
     const keyTakeaways = [];
     const headings = document.querySelectorAll('h1, h2, h3');
     headings.forEach(h => {
